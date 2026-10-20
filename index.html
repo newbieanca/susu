@@ -169,6 +169,11 @@
                         <span>+ Karyawan</span>
                     </button>
 
+                    <button onclick="openBulkImportModal()" class="col-span-1 bg-violet-600 hover:bg-violet-700 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-file-import"></i>
+                        <span>Impor Banyak</span>
+                    </button>
+
                     <button onclick="exportToExcel()" class="col-span-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-1.5">
                         <i class="fa-solid fa-file-excel"></i>
                         <span>Excel</span>
@@ -269,6 +274,50 @@
         </div>
     </div>
 
+    <!-- Modal Bulk Import Employees -->
+    <div id="bulkModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <div>
+                    <h3 class="font-bold text-slate-800 text-base sm:text-lg">Impor Banyak Karyawan (Copy-Paste)</h3>
+                    <p class="text-xs text-slate-500">Copas 2 kolom (NPK dan NAMA) langsung dari Excel atau Google Sheets.</p>
+                </div>
+                <button onclick="closeBulkImportModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-3">
+                <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-xl text-xs text-indigo-900 space-y-1">
+                    <p class="font-semibold"><i class="fa-solid fa-lightbulb text-amber-500 mr-1"></i> Cara Menggunakan:</p>
+                    <ol class="list-decimal list-inside space-y-0.5 text-[11px] text-indigo-800">
+                        <li>Buka Excel / Google Sheets Anda.</li>
+                        <li>Blok 2 kolom berisi <strong>NPK</strong> dan <strong>NAMA KARYAWAN</strong> (sebanyak 300 data).</li>
+                        <li>Tekan <code>Ctrl + C</code> (Copy), lalu Paste (<code>Ctrl + V</code>) di kotak di bawah.</li>
+                    </ol>
+                </div>
+
+                <textarea id="bulkDataInput" rows="8" placeholder="Contoh Hasil Paste:&#10;9900196&#9;AFIAT&#10;242930&#9;ABDUL KHOLIK&#10;202302133&#9;ABDUL ROHMAN" 
+                    class="w-full p-3 border rounded-xl text-xs font-mono focus:ring-2 focus:ring-violet-500 outline-none resize-none bg-slate-50"></textarea>
+
+                <div class="flex items-center justify-between text-xs text-slate-500">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="overwriteData" class="rounded text-violet-600 focus:ring-violet-500">
+                        <span>Ganti/Hapus data lama yang ada</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t">
+                <button type="button" onclick="closeBulkImportModal()" class="px-3.5 py-2 border text-slate-600 rounded-xl text-xs sm:text-sm font-medium hover:bg-slate-50">Batal</button>
+                <button type="button" onclick="processBulkImport()" class="px-4 py-2 bg-violet-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:bg-violet-700 shadow-sm flex items-center gap-1.5">
+                    <i class="fa-solid fa-file-import"></i>
+                    <span>Proses Impor</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const initialEmployees = [
             { npk: "9900196", name: "AFIAT" },
@@ -329,6 +378,48 @@
 
         function getDaysInMonth(month, year) {
             return new Date(year, month, 0).getDate();
+        }
+
+        function updateStats() {
+            const todayObj = new Date();
+            const realMonth = todayObj.getMonth() + 1;
+            const realYear = todayObj.getFullYear();
+            const realDay = todayObj.getDate();
+
+            const dateKey = `${currentYear}-${currentMonth}-${realDay}`;
+            
+            let todayNotTakenCount = 0;
+            employees.forEach(emp => {
+                if (records[emp.npk] && records[emp.npk][dateKey] === true) {
+                    todayNotTakenCount++;
+                }
+            });
+
+            const totalEmp = employees.length;
+            const todayTakenCount = Math.max(0, totalEmp - todayNotTakenCount);
+
+            document.getElementById('stat-total-emp').innerText = totalEmp;
+            document.getElementById('stat-today-no').innerText = todayNotTakenCount;
+            document.getElementById('stat-today-yes').innerText = todayTakenCount;
+        }
+
+        function scrollToToday() {
+            const todayObj = new Date();
+            currentMonth = todayObj.getMonth() + 1;
+            currentYear = todayObj.getFullYear();
+            
+            document.getElementById('monthSelect').value = currentMonth;
+            document.getElementById('yearSelect').value = currentYear;
+            
+            renderDateHeaders();
+            renderTable();
+            updateStats();
+
+            const realDay = todayObj.getDate();
+            const headerEl = document.getElementById(`header-day-${realDay}`);
+            if (headerEl) {
+                headerEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
         }
 
         function loadData() {
@@ -510,60 +601,60 @@
             renderTable();
             updateStats();
         }
-
-        function scrollToToday() {
-            const todayObj = new Date();
-            const realMonth = todayObj.getMonth() + 1;
-            const realYear = todayObj.getFullYear();
-            const realDay = todayObj.getDate();
-
-            if (currentMonth !== realMonth || currentYear !== realYear) {
-                currentMonth = realMonth;
-                currentYear = realYear;
-                document.getElementById('monthSelect').value = currentMonth;
-                document.getElementById('yearSelect').value = currentYear;
-                renderDateHeaders();
-                renderTable();
-                updateStats();
-            }
-
-            setTimeout(() => {
-                const headerEl = document.getElementById(`header-day-${realDay}`);
-                if (headerEl) {
-                    headerEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                }
-            }, 100);
+        function openBulkImportModal() {
+            document.getElementById('bulkDataInput').value = '';
+            document.getElementById('overwriteData').checked = false;
+            document.getElementById('bulkModal').classList.remove('hidden');
         }
 
-        function updateStats() {
-            document.getElementById('stat-total-emp').innerText = employees.length;
+        function closeBulkImportModal() {
+            document.getElementById('bulkModal').classList.add('hidden');
+        }
 
-            let todayNo = 0;
-            const todayObj = new Date();
-            const todayKey = `${todayObj.getFullYear()}-${todayObj.getMonth() + 1}-${todayObj.getDate()}`;
+        function processBulkImport() {
+            const rawText = document.getElementById('bulkDataInput').value.trim();
+            const isOverwrite = document.getElementById('overwriteData').checked;
 
-            employees.forEach(emp => {
-                if (records[emp.npk] && records[emp.npk][todayKey] === true) {
-                    todayNo++;
+            if (!rawText) {
+                alert("Silakan paste data NPK dan Nama dari Excel terlebih dahulu!");
+                return;
+            }
+
+            const lines = rawText.split(/\r?\n/);
+            const newEmployeesList = [];
+
+            lines.forEach(line => {
+                const parts = line.split(/\t|,|;/);
+                if (parts.length >= 2) {
+                    const npk = parts[0].trim();
+                    const name = parts[1].trim().toUpperCase();
+                    if (npk && name) {
+                        newEmployeesList.push({ npk, name });
+                    }
                 }
             });
 
-            document.getElementById('stat-today-no').innerText = todayNo;
-            document.getElementById('stat-today-yes').innerText = employees.length - todayNo;
-        }
+            if (newEmployeesList.length === 0) {
+                alert("Format data tidak terdeteksi. Pastikan Anda meng-copy 2 kolom (NPK dan NAMA) dari Excel.");
+                return;
+            }
 
-        function toggleMobileSummary() {
-            const badge = document.getElementById('summaryBadge');
-            badge.classList.toggle('hidden');
-        }
+            if (isOverwrite) {
+                employees = newEmployeesList;
+            } else {
+                newEmployeesList.forEach(newEmp => {
+                    if (!employees.some(emp => emp.npk === newEmp.npk)) {
+                        employees.push(newEmp);
+                    }
+                });
+            }
 
-        function openAddEmployeeModal() {
-            document.getElementById('addModal').classList.remove('hidden');
-        }
+            saveEmployees();
+            closeBulkImportModal();
+            renderTable();
+            updateStats();
 
-        function closeAddEmployeeModal() {
-            document.getElementById('addModal').classList.add('hidden');
-            document.getElementById('addEmployeeForm').reset();
+            alert(`Berhasil mengimpor ${newEmployeesList.length} karyawan!`);
         }
 
         function saveNewEmployee(e) {
