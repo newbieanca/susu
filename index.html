@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sistem Distribusi Susu Karyawan - Penolakan/Tidak Ambil</title>
+    <title>Sistem Distribusi Susu Karyawan - Realtime Cloud Sync</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -64,6 +64,13 @@
         .sticky-shadow {
             box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.08);
         }
+        @keyframes spinSlow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .spin {
+            animation: spinSlow 1.5s linear infinite;
+        }
     </style>
 </head>
 <body class="text-slate-800 antialiased min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
@@ -77,16 +84,15 @@
                         <i class="fa-solid fa-glass-water-droplet text-xl text-indigo-200"></i>
                     </div>
                     <div>
-                        <h1 class="text-base sm:text-lg font-bold leading-tight">Distribusi Susu Karyawan</h1>
-                        <p class="text-[11px] text-indigo-200">Pencatatan Penolakan / Tidak Menerima Susu</p>
+                        <div class="flex items-center gap-2">
+                            <h1 class="text-base sm:text-lg font-bold leading-tight">Distribusi Susu Karyawan</h1>
+                            <span id="syncStatusBadge" class="bg-amber-400 text-slate-900 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                                <i class="fa-solid fa-rotate spin text-[9px]"></i> Menghubungkan Cloud...
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-indigo-200">Pencatatan Penolakan / Tidak Menerima Susu (Otomatis Tersinkron PC & HP)</p>
                     </div>
                 </div>
-
-                <!-- Toggle Summary Info on Mobile -->
-                <button onclick="toggleMobileSummary()" class="md:hidden text-indigo-200 hover:text-white p-1 text-xs flex items-center gap-1 bg-indigo-800/50 px-2 py-1 rounded-lg">
-                    <i class="fa-solid fa-chart-pie"></i>
-                    <span>Info</span>
-                </button>
             </div>
 
             <!-- Stats Badge Header -->
@@ -129,7 +135,7 @@
                     </button>
                 </div>
 
-                <!-- Action Controls Grid for Mobile & Desktop -->
+                <!-- Action Controls Grid -->
                 <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
                     
                     <!-- Dropdown Pilihan Bulan -->
@@ -179,77 +185,61 @@
                         <span>Excel</span>
                     </button>
 
-                    <button onclick="openResetModal()" class="col-span-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5">
+                    <button onclick="openResetModal()" class="col-span-1 bg-rose-600 hover:bg-rose-700 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-1.5">
                         <i class="fa-solid fa-rotate-left"></i>
-                        <span>Reset</span>
+                        <span>Reset Data</span>
                     </button>
                 </div>
             </div>
 
             <!-- Active Search Badge -->
-            <div id="searchBadge" class="hidden flex items-center gap-2 text-xs font-medium text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 w-fit">
-                <span>Pencarian: <strong id="searchKeyword"></strong></span>
-                <span id="searchResultCount" class="bg-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded-md text-[10px]">0 ditemukan</span>
+            <div id="searchBadge" class="hidden flex items-center justify-between bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg text-xs text-amber-800">
+                <div class="flex items-center gap-1.5">
+                    <i class="fa-solid fa-filter"></i>
+                    <span>Menampilkan pencarian: <strong id="searchKeyword"></strong></span>
+                    <span id="searchResultCount" class="bg-amber-200 px-2 py-0.5 rounded-full font-bold text-[10px]"></span>
+                </div>
+                <button onclick="clearSearch()" class="text-amber-700 hover:text-amber-900 font-bold underline text-[11px]">Buka Filter</button>
             </div>
         </div>
 
-        <!-- Main Table Container -->
+        <!-- Table Container -->
         <div class="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
-            <div class="overflow-x-auto custom-scrollbar max-h-[65vh] sm:max-h-[600px] relative">
-                <table class="w-full text-left border-collapse text-xs sm:text-sm">
+            <div class="overflow-x-auto custom-scrollbar relative">
+                <table class="w-full text-left border-collapse min-w-[700px]">
                     <thead>
-                        <tr class="bg-slate-800 text-white font-semibold sticky top-0 z-20">
-                            <th class="p-2.5 sm:p-3 text-center w-11 bg-slate-800 border-b border-slate-700 sticky-col-header-1">No</th>
-                            <th class="p-2.5 sm:p-3 w-24 sm:w-28 bg-slate-800 border-b border-slate-700 sticky-col-header-2">NPK</th>
-                            <th class="p-2.5 sm:p-3 min-w-[150px] sm:min-w-[200px] bg-slate-800 border-b border-slate-700 sticky-col-header-3 sticky-shadow">NAMA KARYAWAN</th>
-                            <th class="p-2.5 sm:p-3 text-center min-w-[90px] bg-slate-800 border-b border-slate-700">TIDAK AMBIL</th>
-                            <th id="dateHeaderContainer" class="p-0 border-b border-slate-700">
-                                <div class="flex" id="dateHeaders">
-                                    <!-- Dynamic Date Headers -->
+                        <tr class="bg-slate-800 text-white text-xs uppercase tracking-wider">
+                            <th class="p-3 w-11 text-center font-semibold sticky-col-header-1 bg-slate-800 border-r border-slate-700">No</th>
+                            <th class="p-3 w-28 font-semibold sticky-col-header-2 bg-slate-800 border-r border-slate-700">NPK</th>
+                            <th class="p-3 w-52 sm:w-64 font-semibold sticky-col-header-3 bg-slate-800 border-r border-slate-700 sticky-shadow">Nama Karyawan</th>
+                            <th class="p-3 w-24 text-center font-semibold bg-slate-800 border-r border-slate-700">Tidak Ambil</th>
+                            <th class="p-0">
+                                <div id="dateHeaders" class="flex">
+                                    <!-- Dynamic Date Columns rendered by JS -->
                                 </div>
                             </th>
                         </tr>
                     </thead>
-                    <tbody id="employeeTableBody" class="divide-y divide-slate-100">
-                        <!-- Dynamic Rows -->
+                    <tbody id="employeeTableBody" class="divide-y divide-slate-100 text-xs sm:text-sm">
+                        <!-- Dynamic Rows rendered by JS -->
                     </tbody>
                 </table>
             </div>
 
-            <!-- Empty Search State -->
-            <div id="emptyState" class="hidden py-10 text-center">
-                <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <i class="fa-solid fa-user-slash text-xl"></i>
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden p-8 text-center space-y-3">
+                <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto text-xl">
+                    <i class="fa-solid fa-user-slash"></i>
                 </div>
-                <p class="text-slate-600 text-xs sm:text-sm font-medium">Data karyawan tidak ditemukan</p>
+                <p class="text-slate-500 font-medium text-xs sm:text-sm">Karyawan tidak ditemukan</p>
             </div>
         </div>
     </main>
 
-    <!-- Modal Reset Confirmation with Password -->
-    <div id="resetModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4 text-center">
-            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
-                <i class="fa-solid fa-lock text-xl"></i>
-            </div>
-            <div>
-                <h3 class="font-bold text-slate-800 text-base sm:text-lg">Konfirmasi Reset Data</h3>
-                <p class="text-xs text-slate-500 mt-1">Masukkan password admin untuk mengembalikan data awal.</p>
-            </div>
-            <div>
-                <input type="password" id="resetPasswordInput" placeholder="Password" 
-                    class="w-full text-center px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-rose-500 outline-none">
-                <p id="passwordError" class="text-xs text-rose-600 mt-1 hidden font-semibold">Password salah! Silakan coba lagi.</p>
-            </div>
-            <div class="flex justify-center gap-2 pt-1">
-                <button type="button" onclick="closeResetModal()" class="w-1/2 py-2 border text-slate-600 rounded-xl text-xs sm:text-sm font-medium hover:bg-slate-50">Batal</button>
-                <button type="button" onclick="verifyAndResetData()" class="w-1/2 py-2 bg-rose-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:bg-rose-700 shadow-sm">Reset</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Add Employee -->
-    <div id="addModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <!-- Modals -->
+    
+    <!-- Modal Tambah Karyawan -->
+    <div id="addEmployeeModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 class="font-bold text-slate-800 text-base sm:text-lg">Tambah Karyawan Baru</h3>
@@ -257,16 +247,16 @@
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <form id="addEmployeeForm" onsubmit="saveNewEmployee(event)" class="space-y-3.5">
+            <form id="addEmployeeForm" onsubmit="saveNewEmployee(event)" class="space-y-3">
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 mb-1">NPK Karyawan</label>
-                    <input type="text" id="newNpk" required placeholder="Contoh: 202301824" class="w-full px-3 py-2 border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <input type="text" id="newNpk" required placeholder="Contoh: 242930" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
                 <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Lengkap Karyawan</label>
-                    <input type="text" id="newName" required placeholder="Contoh: AHMAD NURHAKIKI" class="w-full px-3 py-2 border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Lengkap</label>
+                    <input type="text" id="newName" required placeholder="Contoh: AGUS SETIAWAN" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
-                <div class="flex justify-end gap-2 pt-2">
+                <div class="flex justify-end gap-2 pt-2 border-t">
                     <button type="button" onclick="closeAddEmployeeModal()" class="px-3.5 py-2 border text-slate-600 rounded-xl text-xs sm:text-sm font-medium hover:bg-slate-50">Batal</button>
                     <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:bg-indigo-700 shadow-sm">Simpan</button>
                 </div>
@@ -274,110 +264,217 @@
         </div>
     </div>
 
-    <!-- Modal Bulk Import Employees -->
+    <!-- Modal Bulk Import -->
     <div id="bulkModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
-                <div>
-                    <h3 class="font-bold text-slate-800 text-base sm:text-lg">Impor Banyak Karyawan (Copy-Paste)</h3>
-                    <p class="text-xs text-slate-500">Copas 2 kolom (NPK dan NAMA) langsung dari Excel atau Google Sheets.</p>
-                </div>
+                <h3 class="font-bold text-slate-800 text-base sm:text-lg">Impor Banyak Karyawan dari Excel</h3>
                 <button onclick="closeBulkImportModal()" class="text-slate-400 hover:text-slate-600 p-1">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            
             <div class="space-y-3">
-                <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-xl text-xs text-indigo-900 space-y-1">
-                    <p class="font-semibold"><i class="fa-solid fa-lightbulb text-amber-500 mr-1"></i> Cara Menggunakan:</p>
-                    <ol class="list-decimal list-inside space-y-0.5 text-[11px] text-indigo-800">
-                        <li>Buka Excel / Google Sheets Anda.</li>
-                        <li>Blok 2 kolom berisi <strong>NPK</strong> dan <strong>NAMA KARYAWAN</strong> (sebanyak 300 data).</li>
-                        <li>Tekan <code>Ctrl + C</code> (Copy), lalu Paste (<code>Ctrl + V</code>) di kotak di bawah.</li>
-                    </ol>
-                </div>
-
-                <textarea id="bulkDataInput" rows="8" placeholder="Contoh Hasil Paste:&#10;9900196&#9;AFIAT&#10;242930&#9;ABDUL KHOLIK&#10;202302133&#9;ABDUL ROHMAN" 
-                    class="w-full p-3 border rounded-xl text-xs font-mono focus:ring-2 focus:ring-violet-500 outline-none resize-none bg-slate-50"></textarea>
-
-                <div class="flex items-center justify-between text-xs text-slate-500">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="overwriteData" class="rounded text-violet-600 focus:ring-violet-500">
-                        <span>Ganti/Hapus data lama yang ada</span>
-                    </label>
+                <p class="text-xs text-slate-600">Copy 2 kolom dari Excel (<strong>Kolom NPK</strong> & <strong>Kolom Nama Karyawan</strong>) lalu paste pada kotak di bawah:</p>
+                <textarea id="bulkDataInput" rows="6" placeholder="9900196	AFIAT&#10;242930	ABDUL KHOLIK&#10;202302133	ABDUL ROHMAN" class="w-full p-3 font-mono text-xs bg-slate-50 border rounded-xl focus:ring-2 focus:ring-violet-500 outline-none"></textarea>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="overwriteData" class="rounded text-violet-600 focus:ring-violet-500">
+                    <label for="overwriteData" class="text-xs text-slate-600">Ganti / hapus seluruh daftar karyawan lama yang ada</label>
                 </div>
             </div>
-
             <div class="flex justify-end gap-2 pt-2 border-t">
                 <button type="button" onclick="closeBulkImportModal()" class="px-3.5 py-2 border text-slate-600 rounded-xl text-xs sm:text-sm font-medium hover:bg-slate-50">Batal</button>
-                <button type="button" onclick="processBulkImport()" class="px-4 py-2 bg-violet-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:bg-violet-700 shadow-sm flex items-center gap-1.5">
-                    <i class="fa-solid fa-file-import"></i>
-                    <span>Proses Impor</span>
-                </button>
+                <button type="button" onclick="processBulkImport()" class="px-4 py-2 bg-violet-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:bg-violet-700 shadow-sm">Proses Impor</button>
             </div>
         </div>
     </div>
 
-    <script>
+    <!-- Modal Reset Password -->
+    <div id="resetModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4">
+            <div class="flex items-center gap-3 text-rose-600 border-b pb-3">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                <h3 class="font-bold text-slate-800 text-base sm:text-lg">Konfirmasi Reset Data</h3>
+            </div>
+            <p class="text-xs text-slate-600">Seluruh data pencatatan akan dikembalikan ke data sampel awal. Masukkan password konfirmasi:</p>
+            <div>
+                <input type="password" id="resetPasswordInput" placeholder="Masukkan Password (11223344)" class="w-full p-2.5 border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-rose-500 outline-none">
+                <span id="passwordError" class="hidden text-[11px] text-rose-600 font-medium mt-1">Password salah!</span>
+            </div>
+            <div class="flex justify-end gap-2 pt-2 border-t">
+                <button onclick="closeResetModal()" class="px-3.5 py-2 border text-slate-600 rounded-xl text-xs font-medium hover:bg-slate-50">Batal</button>
+                <button onclick="verifyAndResetData()" class="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-medium hover:bg-rose-700 shadow-sm">Ya, Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Cloud Integration Script -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // APP ID & Firebase Configuration Setup
+
+const appId = 'distribusi-susu-app-shared';
+
+const firebaseConfig = {
+    apiKey: "AIzaSyChZ4LzrqRiveTUe1OkNOxwu2zHbSQk6Tc",
+    authDomain: "distribusi-susu.firebaseapp.com",
+    projectId: "distribusi-susu",
+    storageBucket: "distribusi-susu.firebasestorage.app",
+    messagingSenderId: "407583391511",
+    appId: "1:407583391511:web:da7448f78235c99f1e4152"
+};
+
+
+        // Sample initial employees list
         const initialEmployees = [
             { npk: "9900196", name: "AFIAT" },
             { npk: "242930", name: "ABDUL KHOLIK" },
-            { npk: "202302133", name: "ABDUL ROHMAN" },
-            { npk: "5260044", name: "ABDULLAH RAMADANI" },
-            { npk: "1500470", name: "ACHMAD ANDIKA SAPUTRA" },
-            { npk: "202600158", name: "ACHMAD JUMALI" },
-            { npk: "9900179", name: "ADE ARYANA" },
-            { npk: "1400169", name: "ADE KURNIADI" },
-            { npk: "202301835", name: "ADE SUPRIYANA" },
-            { npk: "5260137", name: "ADITYA PUTRA" },
-            { npk: "PEG25101540", name: "AFNI LIDIYANASYAH" },
-            { npk: "PEG24071603", name: "AGNES ANGELIKA" },
-            { npk: "202301810", name: "AGUS HARTONO (TEMPORARY)" },
-            { npk: "1400216", name: "AGUS RIYANTO" },
-            { npk: "9900132", name: "AHMAD BACHRUN" },
-            { npk: "202302286", name: "AHMAD HIDAYAT" },
-            { npk: "NPK Not Yet Issued", name: "AHMAD MUNJIRI" },
-            { npk: "202301824", name: "AHMAD NURHAKIKI" },
-            { npk: "5260011", name: "AHMAD SADUDIN" },
-            { npk: "100045", name: "AHMAD SARONI" },
-            { npk: "5260154", name: "AHMAD TAOPIK" },
-            { npk: "5250211", name: "AISYAH TIARANTIKA" },
-            { npk: "1500371", name: "AJENG EKA DURANDARI" },
-            { npk: "PEG25101900", name: "AJI MAULANA" },
-            { npk: "246205", name: "AKBAR MULYO SANTOSO" },
-            { npk: "202302171", name: "AL FITON FAWZI ARDIN" },
-            { npk: "PEG24041463", name: "ALDI ALFRIADI" },
-            { npk: "PEG24031600", name: "ALDIANSYAH YANUAR" },
-            { npk: "PEG23062639", name: "ALFIAN MAULANA" },
-            { npk: "PEG23062895", name: "ALFIN ALFIAN" },
-            { npk: "NPK Not Yet Issued", name: "ALI FATURAHMAN" },
-            { npk: "202301823", name: "ALI SYAHLANI" }
+            { npk: "202302133", name: "ABDUL ROHMAN" }
         ];
 
-        let employees = [];
-        let currentMonth = 10;
-        let currentYear = 2026;
-        let currentDay = 20;
-        let records = {};
+        window.employees = [];
+        window.records = {};
+        window.currentMonth = new Date().getMonth() + 1;
+        window.currentYear = new Date().getFullYear();
+
+        // Autentikasi dan Listener Realtime Cloud
+        async function initCloudSync() {
+            if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === "demo-key") {
+                console.warn("Menggunakan Local Storage Offline Mode.");
+                updateSyncBadge('offline');
+                loadLocalFallback();
+                return;
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                const db = getFirestore(app);
+
+                // Strictly follow Rule 1 Path: /artifacts/{appId}/public/data/{collectionName}/{docId}
+                const publicDocPath = doc(db, 'artifacts', appId, 'public', 'data', 'susu_distribution', 'main_record');
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                updateSyncBadge('online');
+
+                // Real-time listener: Setiap perubahan di PC langsung ter-sync ke HP dalam hitungan detik
+                onSnapshot(publicDocPath, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        window.employees = data.employees && data.employees.length > 0 ? data.employees : [...initialEmployees];
+                        window.records = data.records || {};
+                    } else {
+                        window.employees = [...initialEmployees];
+                        window.records = {};
+                        window.syncToCloud();
+                    }
+                    saveToLocalStorage();
+                    window.renderTable();
+                    window.updateStats();
+                }, (error) => {
+                    console.warn("Cloud listener fallback:", error.message);
+                    updateSyncBadge('offline');
+                    loadLocalFallback();
+                });
+
+                window.syncToCloud = async function() {
+                    updateSyncBadge('saving');
+                    try {
+                        if (auth.currentUser) {
+                            await setDoc(publicDocPath, {
+                                employees: window.employees,
+                                records: window.records,
+                                lastUpdated: new Date().toISOString()
+                            });
+                            saveToLocalStorage();
+                            updateSyncBadge('online');
+                        } else {
+                            saveToLocalStorage();
+                        }
+                    } catch (err) {
+                        console.error("Gagal simpan ke cloud:", err);
+                        saveToLocalStorage();
+                        updateSyncBadge('offline');
+                    }
+                };
+
+            } catch (err) {
+                console.warn("Fallback to local storage:", err);
+                updateSyncBadge('offline');
+                loadLocalFallback();
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('susu_employees_v5', JSON.stringify(window.employees));
+            localStorage.setItem('susu_records_v5', JSON.stringify(window.records));
+        }
+
+        function loadLocalFallback() {
+            const savedEmployees = localStorage.getItem('susu_employees_v5');
+            const savedRecords = localStorage.getItem('susu_records_v5');
+            window.employees = savedEmployees ? JSON.parse(savedEmployees) : [...initialEmployees];
+            window.records = savedRecords ? JSON.parse(savedRecords) : {};
+            window.renderTable();
+            window.updateStats();
+
+            window.syncToCloud = function() {
+                saveToLocalStorage();
+            };
+        }
+
+        function updateSyncBadge(status) {
+            const badge = document.getElementById('syncStatusBadge');
+            if (!badge) return;
+
+            if (status === 'online') {
+                badge.className = "bg-emerald-400 text-slate-900 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm";
+                badge.innerHTML = `<i class="fa-solid fa-cloud"></i> Firebase Terhubung (Auto-Sync)`;
+            } else if (status === 'saving') {
+                badge.className = "bg-amber-400 text-slate-900 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm";
+                badge.innerHTML = `<i class="fa-solid fa-rotate spin text-[9px]"></i> Menyimpan...`;
+            } else {
+                badge.className = "bg-slate-600 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm";
+                badge.innerHTML = `<i class="fa-solid fa-hard-drive"></i> Mode Lokal Terpasang`;
+            }
+        }
 
         window.onload = function() {
-            // Check real system date
-            const today = new Date();
-            currentMonth = today.getMonth() + 1;
-            currentYear = today.getFullYear();
-            currentDay = today.getDate();
-
-            document.getElementById('monthSelect').value = currentMonth;
-            document.getElementById('yearSelect').value = currentYear;
-
-            loadData();
-            renderDateHeaders();
-            renderTable();
-            updateStats();
+            window.renderDateHeaders();
+            initCloudSync();
         };
+    </script>
 
+    <!-- UI Logic & Table Render Scripts -->
+    <script>
         function getDaysInMonth(month, year) {
             return new Date(year, month, 0).getDate();
+        }
+
+        function openAddEmployeeModal() {
+            document.getElementById('addEmployeeModal').classList.remove('hidden');
+        }
+
+        function closeAddEmployeeModal() {
+            document.getElementById('addEmployeeModal').classList.add('hidden');
+            document.getElementById('addEmployeeForm').reset();
+        }
+
+        function openBulkImportModal() {
+            document.getElementById('bulkDataInput').value = '';
+            document.getElementById('overwriteData').checked = false;
+            document.getElementById('bulkModal').classList.remove('hidden');
+        }
+
+        function closeBulkImportModal() {
+            document.getElementById('bulkModal').classList.add('hidden');
         }
 
         function updateStats() {
@@ -386,16 +483,16 @@
             const realYear = todayObj.getFullYear();
             const realDay = todayObj.getDate();
 
-            const dateKey = `${currentYear}-${currentMonth}-${realDay}`;
+            const dateKey = `${window.currentYear}-${window.currentMonth}-${realDay}`;
             
             let todayNotTakenCount = 0;
-            employees.forEach(emp => {
-                if (records[emp.npk] && records[emp.npk][dateKey] === true) {
+            (window.employees || []).forEach(emp => {
+                if (window.records && window.records[emp.npk] && window.records[emp.npk][dateKey] === true) {
                     todayNotTakenCount++;
                 }
             });
 
-            const totalEmp = employees.length;
+            const totalEmp = (window.employees || []).length;
             const todayTakenCount = Math.max(0, totalEmp - todayNotTakenCount);
 
             document.getElementById('stat-total-emp').innerText = totalEmp;
@@ -405,11 +502,11 @@
 
         function scrollToToday() {
             const todayObj = new Date();
-            currentMonth = todayObj.getMonth() + 1;
-            currentYear = todayObj.getFullYear();
+            window.currentMonth = todayObj.getMonth() + 1;
+            window.currentYear = todayObj.getFullYear();
             
-            document.getElementById('monthSelect').value = currentMonth;
-            document.getElementById('yearSelect').value = currentYear;
+            document.getElementById('monthSelect').value = window.currentMonth;
+            document.getElementById('yearSelect').value = window.currentYear;
             
             renderDateHeaders();
             renderTable();
@@ -422,45 +519,18 @@
             }
         }
 
-        function loadData() {
-            const savedEmployees = localStorage.getItem('susu_employees_v3');
-            const savedRecords = localStorage.getItem('susu_records_v3');
-
-            if (savedEmployees) {
-                employees = JSON.parse(savedEmployees);
-            } else {
-                employees = [...initialEmployees];
-                saveEmployees();
-            }
-
-            if (savedRecords) {
-                records = JSON.parse(savedRecords);
-            } else {
-                records = {};
-                saveRecords();
-            }
-        }
-
-        function saveEmployees() {
-            localStorage.setItem('susu_employees_v3', JSON.stringify(employees));
-        }
-
-        function saveRecords() {
-            localStorage.setItem('susu_records_v3', JSON.stringify(records));
-        }
-
         function renderDateHeaders() {
             const container = document.getElementById('dateHeaders');
             container.innerHTML = '';
 
-            const totalDays = getDaysInMonth(currentMonth, currentYear);
+            const totalDays = getDaysInMonth(window.currentMonth, window.currentYear);
             const todayObj = new Date();
             const realMonth = todayObj.getMonth() + 1;
             const realYear = todayObj.getFullYear();
             const realDay = todayObj.getDate();
 
             for (let day = 1; day <= totalDays; day++) {
-                const isToday = (day === realDay && currentMonth === realMonth && currentYear === realYear);
+                const isToday = (day === realDay && window.currentMonth === realMonth && window.currentYear === realYear);
                 const dayEl = document.createElement('div');
                 dayEl.className = `w-11 sm:w-12 flex-shrink-0 text-center py-2 border-r border-slate-700 ${
                     isToday ? 'bg-amber-400 text-slate-900 font-bold' : 'hover:bg-slate-700'
@@ -479,9 +549,10 @@
             const searchKeyword = document.getElementById('searchInput').value.trim().toLowerCase();
             tbody.innerHTML = '';
 
-            const totalDays = getDaysInMonth(currentMonth, currentYear);
+            const totalDays = getDaysInMonth(window.currentMonth, window.currentYear);
+            const employeeList = window.employees || [];
 
-            const filteredEmployees = employees.filter(emp => {
+            const filteredEmployees = employeeList.filter(emp => {
                 const npkMatch = emp.npk.toLowerCase().includes(searchKeyword);
                 const nameMatch = emp.name.toLowerCase().includes(searchKeyword);
                 return npkMatch || nameMatch;
@@ -521,10 +592,10 @@
                 }`;
 
                 let totalNotTaken = 0;
-                if (records[emp.npk]) {
+                if (window.records && window.records[emp.npk]) {
                     for (let d = 1; d <= totalDays; d++) {
-                        const dateKey = `${currentYear}-${currentMonth}-${d}`;
-                        if (records[emp.npk][dateKey]) totalNotTaken++;
+                        const dateKey = `${window.currentYear}-${window.currentMonth}-${d}`;
+                        if (window.records[emp.npk][dateKey]) totalNotTaken++;
                     }
                 }
 
@@ -538,9 +609,9 @@
                 `;
 
                 for (let day = 1; day <= totalDays; day++) {
-                    const dateKey = `${currentYear}-${currentMonth}-${day}`;
-                    const isNotTaken = records[emp.npk] && records[emp.npk][dateKey] === true;
-                    const isToday = (day === realDay && currentMonth === realMonth && currentYear === realYear);
+                    const dateKey = `${window.currentYear}-${window.currentMonth}-${day}`;
+                    const isNotTaken = window.records && window.records[emp.npk] && window.records[emp.npk][dateKey] === true;
+                    const isToday = (day === realDay && window.currentMonth === realMonth && window.currentYear === realYear);
 
                     rowHtml += `
                         <div class="w-11 sm:w-12 flex-shrink-0 text-center py-2 sm:py-2.5 border-r border-slate-100 flex items-center justify-center ${
@@ -570,13 +641,18 @@
         }
 
         function toggleDistribution(npk, day) {
-            const dateKey = `${currentYear}-${currentMonth}-${day}`;
-            if (!records[npk]) records[npk] = {};
+            const dateKey = `${window.currentYear}-${window.currentMonth}-${day}`;
+            if (!window.records) window.records = {};
+            if (!window.records[npk]) window.records[npk] = {};
 
-            records[npk][dateKey] = !records[npk][dateKey];
-            saveRecords();
+            window.records[npk][dateKey] = !window.records[npk][dateKey];
+            
             renderTable();
             updateStats();
+            
+            if (window.syncToCloud) {
+                window.syncToCloud();
+            }
         }
 
         function highlightMatch(text, keyword) {
@@ -595,20 +671,33 @@
         }
 
         function changePeriod() {
-            currentMonth = parseInt(document.getElementById('monthSelect').value);
-            currentYear = parseInt(document.getElementById('yearSelect').value);
+            window.currentMonth = parseInt(document.getElementById('monthSelect').value);
+            window.currentYear = parseInt(document.getElementById('yearSelect').value);
             renderDateHeaders();
             renderTable();
             updateStats();
         }
-        function openBulkImportModal() {
-            document.getElementById('bulkDataInput').value = '';
-            document.getElementById('overwriteData').checked = false;
-            document.getElementById('bulkModal').classList.remove('hidden');
-        }
 
-        function closeBulkImportModal() {
-            document.getElementById('bulkModal').classList.add('hidden');
+        function saveNewEmployee(e) {
+            e.preventDefault();
+            const npk = document.getElementById('newNpk').value.trim();
+            const name = document.getElementById('newName').value.trim().toUpperCase();
+
+            if (!npk || !name) return;
+
+            if (window.employees.some(emp => emp.npk === npk)) {
+                alert('NPK ini sudah terdaftar!');
+                return;
+            }
+
+            window.employees.push({ npk, name });
+            closeAddEmployeeModal();
+            renderTable();
+            updateStats();
+
+            if (window.syncToCloud) {
+                window.syncToCloud();
+            }
         }
 
         function processBulkImport() {
@@ -640,40 +729,23 @@
             }
 
             if (isOverwrite) {
-                employees = newEmployeesList;
+                window.employees = newEmployeesList;
             } else {
                 newEmployeesList.forEach(newEmp => {
-                    if (!employees.some(emp => emp.npk === newEmp.npk)) {
-                        employees.push(newEmp);
+                    if (!window.employees.some(emp => emp.npk === newEmp.npk)) {
+                        window.employees.push(newEmp);
                     }
                 });
             }
 
-            saveEmployees();
             closeBulkImportModal();
             renderTable();
             updateStats();
 
-            alert(`Berhasil mengimpor ${newEmployeesList.length} karyawan!`);
-        }
-
-        function saveNewEmployee(e) {
-            e.preventDefault();
-            const npk = document.getElementById('newNpk').value.trim();
-            const name = document.getElementById('newName').value.trim().toUpperCase();
-
-            if (!npk || !name) return;
-
-            if (employees.some(emp => emp.npk === npk)) {
-                alert('NPK ini sudah terdaftar!');
-                return;
+            // Paksa simpan dan sinkronisasi ke seluruh perangkat (HP & PC)
+            if (window.syncToCloud) {
+                window.syncToCloud();
             }
-
-            employees.push({ npk, name });
-            saveEmployees();
-            closeAddEmployeeModal();
-            renderTable();
-            updateStats();
         }
 
         function openResetModal() {
@@ -689,15 +761,19 @@
         function verifyAndResetData() {
             const pwd = document.getElementById('resetPasswordInput').value;
             if (pwd === "11223344") {
-                localStorage.removeItem('susu_employees_v3');
-                localStorage.removeItem('susu_records_v3');
-                employees = [...initialEmployees];
-                records = {};
-                saveEmployees();
-                saveRecords();
+                window.employees = [
+                    { npk: "9900196", name: "AFIAT" },
+                    { npk: "242930", name: "ABDUL KHOLIK" },
+                    { npk: "202302133", name: "ABDUL ROHMAN" }
+                ];
+                window.records = {};
                 closeResetModal();
                 renderTable();
                 updateStats();
+
+                if (window.syncToCloud) {
+                    window.syncToCloud();
+                }
             } else {
                 document.getElementById('passwordError').classList.remove('hidden');
             }
@@ -708,8 +784,8 @@
                 1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
                 7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
             };
-            const selectedMonthName = monthNames[currentMonth] || `Bulan_${currentMonth}`;
-            const totalDays = getDaysInMonth(currentMonth, currentYear);
+            const selectedMonthName = monthNames[window.currentMonth] || `Bulan_${window.currentMonth}`;
+            const totalDays = getDaysInMonth(window.currentMonth, window.currentYear);
             
             const excelData = [];
             const headerRow = ["No", "NPK", "NAMA KARYAWAN", "TOTAL TIDAK AMBIL"];
@@ -719,13 +795,13 @@
             }
             excelData.push(headerRow);
 
-            employees.forEach((emp, index) => {
+            (window.employees || []).forEach((emp, index) => {
                 let totalNotTaken = 0;
                 const dailyStatus = [];
 
                 for (let d = 1; d <= totalDays; d++) {
-                    const dateKey = `${currentYear}-${currentMonth}-${d}`;
-                    const isNotTaken = records[emp.npk] && records[emp.npk][dateKey] === true;
+                    const dateKey = `${window.currentYear}-${window.currentMonth}-${d}`;
+                    const isNotTaken = window.records && window.records[emp.npk] && window.records[emp.npk][dateKey] === true;
                     if (isNotTaken) {
                         totalNotTaken++;
                         dailyStatus.push("X (TIDAK)");
@@ -751,8 +827,8 @@
             for (let d = 1; d <= totalDays; d++) colWidths.push({ wch: 10 });
             ws['!cols'] = colWidths;
 
-            XLSX.utils.book_append_sheet(wb, ws, `${selectedMonthName}_${currentYear}`);
-            XLSX.writeFile(wb, `Distribusi_Susu_Tidak_Ambil_${selectedMonthName}_${currentYear}.xlsx`);
+            XLSX.utils.book_append_sheet(wb, ws, `${selectedMonthName}_${window.currentYear}`);
+            XLSX.writeFile(wb, `Distribusi_Susu_Tidak_Ambil_${selectedMonthName}_${window.currentYear}.xlsx`);
         }
     </script>
 </body>
