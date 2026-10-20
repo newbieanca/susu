@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistem Distribusi Susu Karyawan - Penolakan/Tidak Ambil</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Library SheetJS untuk Export Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Sticky Column Adjustments */
+        .sticky-col-left-1 {
+            position: sticky;
+            left: 0;
+            z-index: 10;
+        }
+        .sticky-col-left-2 {
+            position: sticky;
+            left: 44px;
+            z-index: 10;
+        }
+        .sticky-col-left-3 {
+            position: sticky;
+            left: 144px;
+            z-index: 10;
+        }
+        .sticky-col-header-1 {
+            position: sticky;
+            left: 0;
+            z-index: 25;
+        }
+        .sticky-col-header-2 {
+            position: sticky;
+            left: 44px;
+            z-index: 25;
+        }
+        .sticky-col-header-3 {
+            position: sticky;
+            left: 144px;
+            z-index: 25;
+        }
+        .sticky-shadow {
+            box-shadow: 4px 0 8px -2px rgba(0, 0, 0, 0.08);
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header -->
+    <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 flex flex-col md:flex-row justify-between items-center gap-3">
+            <div class="flex items-center justify-between w-full md:w-auto">
+                <div class="flex items-center gap-2.5">
+                    <div class="p-2 bg-white/10 rounded-xl backdrop-blur-md flex items-center justify-center">
+                        <i class="fa-solid fa-glass-water-droplet text-xl text-indigo-200"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-base sm:text-lg font-bold leading-tight">Distribusi Susu Karyawan</h1>
+                        <p class="text-[11px] text-indigo-200">Pencatatan Penolakan / Tidak Menerima Susu</p>
+                    </div>
+                </div>
+
+                <!-- Toggle Summary Info on Mobile -->
+                <button onclick="toggleMobileSummary()" class="md:hidden text-indigo-200 hover:text-white p-1 text-xs flex items-center gap-1 bg-indigo-800/50 px-2 py-1 rounded-lg">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Info</span>
+                </button>
+            </div>
+
+            <!-- Stats Badge Header -->
+            <div id="summaryBadge" class="w-full md:w-auto flex items-center justify-around md:justify-end gap-2 sm:gap-4 bg-indigo-800/70 px-3 py-2 rounded-xl border border-indigo-500/30 text-xs transition-all">
+                <div class="text-center">
+                    <span class="block text-[10px] text-indigo-200">Total Karyawan</span>
+                    <span id="stat-total-emp" class="font-bold text-white text-sm sm:text-base">0</span>
+                </div>
+                <div class="h-6 w-px bg-indigo-500/40"></div>
+                <div class="text-center">
+                    <span class="block text-[10px] text-indigo-200">Tidak Ambil (Hari Ini)</span>
+                    <span id="stat-today-no" class="font-bold text-rose-300 text-sm sm:text-base">0</span>
+                </div>
+                <div class="h-6 w-px bg-indigo-500/40"></div>
+                <div class="text-center">
+                    <span class="block text-[10px] text-indigo-200">Menerima (Hari Ini)</span>
+                    <span id="stat-today-yes" class="font-bold text-emerald-300 text-sm sm:text-base">0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-2 sm:px-6 lg:px-8 py-3 sm:py-6 space-y-3 sm:space-y-5">
+
+        <!-- Controls Toolbar -->
+        <div class="bg-white p-3 sm:p-5 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200/80 space-y-3">
+            <div class="flex flex-col lg:flex-row gap-3 justify-between items-stretch lg:items-center">
+                
+                <!-- Quick Search Input -->
+                <div class="relative flex-1">
+                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass text-xs sm:text-sm"></i>
+                    </div>
+                    <input type="text" id="searchInput" oninput="handleSearch()"
+                        placeholder="Ketik NPK atau Nama Karyawan..." 
+                        class="w-full pl-9 pr-9 py-2.5 sm:py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+                    <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+                        <i class="fa-solid fa-circle-xmark text-sm"></i>
+                    </button>
+                </div>
+
+                <!-- Action Controls Grid for Mobile & Desktop -->
+                <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
+                    
+                    <!-- Dropdown Pilihan Bulan -->
+                    <select id="monthSelect" onchange="changePeriod()" class="col-span-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="1">Januari</option>
+                        <option value="2">Februari</option>
+                        <option value="3">Maret</option>
+                        <option value="4">April</option>
+                        <option value="5">Mei</option>
+                        <option value="6">Juni</option>
+                        <option value="7">Juli</option>
+                        <option value="8">Agustus</option>
+                        <option value="9">September</option>
+                        <option value="10" selected>Oktober</option>
+                        <option value="11">November</option>
+                        <option value="12">Desember</option>
+                    </select>
+
+                    <!-- Dropdown Pilihan Tahun -->
+                    <select id="yearSelect" onchange="changePeriod()" class="col-span-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
+                        <option value="2027">2027</option>
+                        <option value="2028">2028</option>
+                        <option value="2029">2029</option>
+                        <option value="2030">2030</option>
+                    </select>
+
+                    <button onclick="scrollToToday()" class="col-span-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border border-indigo-200 transition-colors flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-calendar-day"></i>
+                        <span id="todayLabel">Hari Ini</span>
+                    </button>
+
+                    <button onclick="openAddEmployeeModal()" class="col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <span>+ Karyawan</span>
+                    </button>
+
+                    <button onclick="exportToExcel()" class="col-span-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-file-excel"></i>
+                        <span>Excel</span>
+                    </button>
+
+                    <button onclick="openResetModal()" class="col-span-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-rotate-left"></i>
+                        <span>Reset</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Search Badge -->
+            <div id="searchBadge" class="hidden flex items-center gap-2 text-xs font-medium text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 w-fit">
+                <span>Pencarian: <strong id="searchKeyword"></strong></span>
+                <span id="searchResultCount" class="bg-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded-md text-[10px]">0 ditemukan</span>
+            </div>
+        </div>
+
+        <!-- Main Table Container -->
+        <div class="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="overflow-x-auto custom-scrollbar max-h-[65vh] sm:max-h-[600px] relative">
+                <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                    <thead>
+                        <tr class="bg-slate-800 text-white font-semibold sticky top-0 z-20">
+                            <th class="p-2.5 sm:p-3 text-center w-11 bg-slate-800 border-b border-slate-700 sticky-col-header-1">No</th>
+                            <th class="p-2.5 sm:p-3 w-24 sm:w-28 bg-slate-800 border-b border-slate-700 sticky-col-header-2">NPK</th>
+                            <th class="p-2.5 sm:p-3 min-w-[150px] sm:min-w-[200px] bg-slate-800 border-b border-slate-700 sticky-col-header-3 sticky-shadow">NAMA KARYAWAN</th>
+                            <th class="p-2.5 sm:p-3 text-center min-w-[90px] bg-slate-800 border-b border-slate-700">TIDAK AMBIL</th>
+                            <th id="dateHeaderContainer" class="p-0 border-b border-slate-700">
+                                <div class="flex" id="dateHeaders">
+                                    <!-- Dynamic Date Headers -->
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeeTableBody" class="divide-y divide-slate-100">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Empty Search State -->
+            <div id="emptyState" class="hidden py-10 text-center">
+                <div class="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-2">
+                    <i class="fa-solid fa-user-slash text-xl"></i>
+                </div>
+                <p class="text-slate-600 text-xs sm:text-sm font-medium">Data karyawan tidak ditemukan</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Reset Confirmation with Password -->
+    <div id="resetModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4 text-center">
+            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+                <i class="fa-solid fa-lock text-xl"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-slate-800 text-base sm:text-lg">Konfirmasi Reset Data</h3>
+                <p class="text-xs text-slate-500 mt-1">Masukkan password admin untuk mengembalikan data awal.</p>
+            </div>
+            <div>
+                <input type="password" id="resetPasswordInput" placeholder="Password (11223344)" 
+                    class="w-full text-center px-3 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-rose-500 outline-none">
+                <p id="passwordError" class="text-xs text-rose-600 mt-1 hidden font-semibold">Password salah! Silakan coba lagi.</p>
+            </div>
+            <div class="flex justify-center gap-2 pt-1">
+                <button type="button" onclick="closeResetModal()" class="w-1/2 py-2 border text-slate-600 rounded-xl text-xs sm:text-sm font-medium hover:bg-slate-50">Batal</button>
+                <button type="button" onclick="verifyAndResetData()" class="w-1/2 py-2 bg-rose-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:bg-rose-700 shadow-sm">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Add Employee -->
+    <div id="addModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-base sm:text-lg">Tambah Karyawan Baru</h3>
+                <button onclick="closeAddEmployeeModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form id="addEmployeeForm" onsubmit="saveNewEmployee(event)" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">NPK Karyawan</label>
+                    <input type="text" id="newNpk" required placeholder="Contoh: 202301824" class="w-full px-3 py-2 border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Lengkap Karyawan</label>
+                    <input type="text" id="newName" required placeholder="Contoh: AHMAD NURHAKIKI" class="w-full px-3 py-2 border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeAddEmployeeModal()" class="px-3.5 py-2 border text-slate-600 rounded-xl text-xs sm:text-sm font-medium hover:bg-slate-50">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:bg-indigo-700 shadow-sm">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const initialEmployees = [
+            { npk: "9900196", name: "AFIAT" },
+            { npk: "242930", name: "ABDUL KHOLIK" },
+            { npk: "202302133", name: "ABDUL ROHMAN" },
+            { npk: "5260044", name: "ABDULLAH RAMADANI" },
+            { npk: "1500470", name: "ACHMAD ANDIKA SAPUTRA" },
+            { npk: "202600158", name: "ACHMAD JUMALI" },
+            { npk: "9900179", name: "ADE ARYANA" },
+            { npk: "1400169", name: "ADE KURNIADI" },
+            { npk: "202301835", name: "ADE SUPRIYANA" },
+            { npk: "5260137", name: "ADITYA PUTRA" },
+            { npk: "PEG25101540", name: "AFNI LIDIYANASYAH" },
+            { npk: "PEG24071603", name: "AGNES ANGELIKA" },
+            { npk: "202301810", name: "AGUS HARTONO (TEMPORARY)" },
+            { npk: "1400216", name: "AGUS RIYANTO" },
+            { npk: "9900132", name: "AHMAD BACHRUN" },
+            { npk: "202302286", name: "AHMAD HIDAYAT" },
+            { npk: "NPK Not Yet Issued", name: "AHMAD MUNJIRI" },
+            { npk: "202301824", name: "AHMAD NURHAKIKI" },
+            { npk: "5260011", name: "AHMAD SADUDIN" },
+            { npk: "100045", name: "AHMAD SARONI" },
+            { npk: "5260154", name: "AHMAD TAOPIK" },
+            { npk: "5250211", name: "AISYAH TIARANTIKA" },
+            { npk: "1500371", name: "AJENG EKA DURANDARI" },
+            { npk: "PEG25101900", name: "AJI MAULANA" },
+            { npk: "246205", name: "AKBAR MULYO SANTOSO" },
+            { npk: "202302171", name: "AL FITON FAWZI ARDIN" },
+            { npk: "PEG24041463", name: "ALDI ALFRIADI" },
+            { npk: "PEG24031600", name: "ALDIANSYAH YANUAR" },
+            { npk: "PEG23062639", name: "ALFIAN MAULANA" },
+            { npk: "PEG23062895", name: "ALFIN ALFIAN" },
+            { npk: "NPK Not Yet Issued", name: "ALI FATURAHMAN" },
+            { npk: "202301823", name: "ALI SYAHLANI" }
+        ];
+
+        let employees = [];
+        let currentMonth = 10;
+        let currentYear = 2026;
+        let currentDay = 20;
+        let records = {};
+
+        window.onload = function() {
+            // Check real system date
+            const today = new Date();
+            currentMonth = today.getMonth() + 1;
+            currentYear = today.getFullYear();
+            currentDay = today.getDate();
+
+            document.getElementById('monthSelect').value = currentMonth;
+            document.getElementById('yearSelect').value = currentYear;
+
+            loadData();
+            renderDateHeaders();
+            renderTable();
+            updateStats();
+        };
+
+        function getDaysInMonth(month, year) {
+            return new Date(year, month, 0).getDate();
+        }
+
+        function loadData() {
+            const savedEmployees = localStorage.getItem('susu_employees_v3');
+            const savedRecords = localStorage.getItem('susu_records_v3');
+
+            if (savedEmployees) {
+                employees = JSON.parse(savedEmployees);
+            } else {
+                employees = [...initialEmployees];
+                saveEmployees();
+            }
+
+            if (savedRecords) {
+                records = JSON.parse(savedRecords);
+            } else {
+                records = {};
+                saveRecords();
+            }
+        }
+
+        function saveEmployees() {
+            localStorage.setItem('susu_employees_v3', JSON.stringify(employees));
+        }
+
+        function saveRecords() {
+            localStorage.setItem('susu_records_v3', JSON.stringify(records));
+        }
+
+        function renderDateHeaders() {
+            const container = document.getElementById('dateHeaders');
+            container.innerHTML = '';
+
+            const totalDays = getDaysInMonth(currentMonth, currentYear);
+            const todayObj = new Date();
+            const realMonth = todayObj.getMonth() + 1;
+            const realYear = todayObj.getFullYear();
+            const realDay = todayObj.getDate();
+
+            for (let day = 1; day <= totalDays; day++) {
+                const isToday = (day === realDay && currentMonth === realMonth && currentYear === realYear);
+                const dayEl = document.createElement('div');
+                dayEl.className = `w-11 sm:w-12 flex-shrink-0 text-center py-2 border-r border-slate-700 ${
+                    isToday ? 'bg-amber-400 text-slate-900 font-bold' : 'hover:bg-slate-700'
+                }`;
+                dayEl.id = `header-day-${day}`;
+                dayEl.innerHTML = `
+                    <div class="text-[9px] uppercase font-normal">${isToday ? 'HARI INI' : 'TGL'}</div>
+                    <div class="text-xs sm:text-sm">${day}</div>
+                `;
+                container.appendChild(dayEl);
+            }
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('employeeTableBody');
+            const searchKeyword = document.getElementById('searchInput').value.trim().toLowerCase();
+            tbody.innerHTML = '';
+
+            const totalDays = getDaysInMonth(currentMonth, currentYear);
+
+            const filteredEmployees = employees.filter(emp => {
+                const npkMatch = emp.npk.toLowerCase().includes(searchKeyword);
+                const nameMatch = emp.name.toLowerCase().includes(searchKeyword);
+                return npkMatch || nameMatch;
+            });
+
+            const emptyState = document.getElementById('emptyState');
+            const searchBadge = document.getElementById('searchBadge');
+
+            if (searchKeyword.length > 0) {
+                searchBadge.classList.remove('hidden');
+                document.getElementById('searchKeyword').innerText = searchKeyword;
+                document.getElementById('searchResultCount').innerText = `${filteredEmployees.length} ditemukan`;
+                document.getElementById('clearSearchBtn').classList.remove('hidden');
+            } else {
+                searchBadge.classList.add('hidden');
+                document.getElementById('clearSearchBtn').classList.add('hidden');
+            }
+
+            if (filteredEmployees.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            const todayObj = new Date();
+            const realMonth = todayObj.getMonth() + 1;
+            const realYear = todayObj.getFullYear();
+            const realDay = todayObj.getDate();
+
+            filteredEmployees.forEach((emp, index) => {
+                const row = document.createElement('tr');
+                const isHighlighted = searchKeyword.length > 0;
+                const rowBg = index % 2 === 0 ? 'bg-white' : 'bg-slate-50/60';
+                row.className = `hover:bg-indigo-50/50 transition-colors ${
+                    isHighlighted ? 'bg-amber-50/80' : rowBg
+                }`;
+
+                let totalNotTaken = 0;
+                if (records[emp.npk]) {
+                    for (let d = 1; d <= totalDays; d++) {
+                        const dateKey = `${currentYear}-${currentMonth}-${d}`;
+                        if (records[emp.npk][dateKey]) totalNotTaken++;
+                    }
+                }
+
+                let rowHtml = `
+                    <td class="p-2 sm:p-3 text-center text-slate-500 font-medium sticky-col-left-1 border-r border-slate-100 ${isHighlighted ? 'bg-amber-50' : rowBg}">${index + 1}</td>
+                    <td class="p-2 sm:p-3 font-mono text-slate-600 font-medium text-[11px] sm:text-xs sticky-col-left-2 border-r border-slate-100 ${isHighlighted ? 'bg-amber-50' : rowBg}">${emp.npk}</td>
+                    <td class="p-2 sm:p-3 font-semibold text-slate-800 text-xs sm:text-sm sticky-col-left-3 sticky-shadow border-r border-slate-100 ${isHighlighted ? 'bg-amber-50' : rowBg}">${highlightMatch(emp.name, searchKeyword)}</td>
+                    <td class="p-2 sm:p-3 text-center font-bold text-rose-600 bg-rose-50/30 border-r border-slate-100 text-xs">${totalNotTaken}x</td>
+                    <td class="p-0">
+                        <div class="flex">
+                `;
+
+                for (let day = 1; day <= totalDays; day++) {
+                    const dateKey = `${currentYear}-${currentMonth}-${day}`;
+                    const isNotTaken = records[emp.npk] && records[emp.npk][dateKey] === true;
+                    const isToday = (day === realDay && currentMonth === realMonth && currentYear === realYear);
+
+                    rowHtml += `
+                        <div class="w-11 sm:w-12 flex-shrink-0 text-center py-2 sm:py-2.5 border-r border-slate-100 flex items-center justify-center ${
+                            isToday ? 'bg-amber-50/80' : ''
+                        }">
+                            <button onclick="toggleDistribution('${emp.npk}', ${day})" 
+                                title="${isNotTaken ? 'Status: TIDAK AMBIL' : 'Klik jika TIDAK ambil'}"
+                                class="w-7 h-7 sm:w-6 sm:h-6 rounded-md flex items-center justify-center transition-all touch-manipulation ${
+                                    isNotTaken 
+                                        ? 'bg-rose-600 text-white shadow-sm scale-105 active:scale-95' 
+                                        : 'border-2 border-slate-200 text-transparent active:border-rose-300 bg-white'
+                                }">
+                                <i class="fa-solid fa-xmark text-xs"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+
+                rowHtml += `
+                        </div>
+                    </td>
+                `;
+
+                row.innerHTML = rowHtml;
+                tbody.appendChild(row);
+            });
+        }
+
+        function toggleDistribution(npk, day) {
+            const dateKey = `${currentYear}-${currentMonth}-${day}`;
+            if (!records[npk]) records[npk] = {};
+
+            records[npk][dateKey] = !records[npk][dateKey];
+            saveRecords();
+            renderTable();
+            updateStats();
+        }
+
+        function highlightMatch(text, keyword) {
+            if (!keyword) return text;
+            const regex = new RegExp(`(${keyword})`, 'gi');
+            return text.replace(regex, `<mark class="bg-amber-200 text-slate-900 rounded-sm px-0.5">$1</mark>`);
+        }
+
+        function handleSearch() {
+            renderTable();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            renderTable();
+        }
+
+        function changePeriod() {
+            currentMonth = parseInt(document.getElementById('monthSelect').value);
+            currentYear = parseInt(document.getElementById('yearSelect').value);
+            renderDateHeaders();
+            renderTable();
+            updateStats();
+        }
+
+        function scrollToToday() {
+            const todayObj = new Date();
+            const realMonth = todayObj.getMonth() + 1;
+            const realYear = todayObj.getFullYear();
+            const realDay = todayObj.getDate();
+
+            if (currentMonth !== realMonth || currentYear !== realYear) {
+                currentMonth = realMonth;
+                currentYear = realYear;
+                document.getElementById('monthSelect').value = currentMonth;
+                document.getElementById('yearSelect').value = currentYear;
+                renderDateHeaders();
+                renderTable();
+                updateStats();
+            }
+
+            setTimeout(() => {
+                const headerEl = document.getElementById(`header-day-${realDay}`);
+                if (headerEl) {
+                    headerEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }, 100);
+        }
+
+        function updateStats() {
+            document.getElementById('stat-total-emp').innerText = employees.length;
+
+            let todayNo = 0;
+            const todayObj = new Date();
+            const todayKey = `${todayObj.getFullYear()}-${todayObj.getMonth() + 1}-${todayObj.getDate()}`;
+
+            employees.forEach(emp => {
+                if (records[emp.npk] && records[emp.npk][todayKey] === true) {
+                    todayNo++;
+                }
+            });
+
+            document.getElementById('stat-today-no').innerText = todayNo;
+            document.getElementById('stat-today-yes').innerText = employees.length - todayNo;
+        }
+
+        function toggleMobileSummary() {
+            const badge = document.getElementById('summaryBadge');
+            badge.classList.toggle('hidden');
+        }
+
+        function openAddEmployeeModal() {
+            document.getElementById('addModal').classList.remove('hidden');
+        }
+
+        function closeAddEmployeeModal() {
+            document.getElementById('addModal').classList.add('hidden');
+            document.getElementById('addEmployeeForm').reset();
+        }
+
+        function saveNewEmployee(e) {
+            e.preventDefault();
+            const npk = document.getElementById('newNpk').value.trim();
+            const name = document.getElementById('newName').value.trim().toUpperCase();
+
+            if (!npk || !name) return;
+
+            if (employees.some(emp => emp.npk === npk)) {
+                alert('NPK ini sudah terdaftar!');
+                return;
+            }
+
+            employees.push({ npk, name });
+            saveEmployees();
+            closeAddEmployeeModal();
+            renderTable();
+            updateStats();
+        }
+
+        function openResetModal() {
+            document.getElementById('passwordError').classList.add('hidden');
+            document.getElementById('resetPasswordInput').value = '';
+            document.getElementById('resetModal').classList.remove('hidden');
+        }
+
+        function closeResetModal() {
+            document.getElementById('resetModal').classList.add('hidden');
+        }
+
+        function verifyAndResetData() {
+            const pwd = document.getElementById('resetPasswordInput').value;
+            if (pwd === "11223344") {
+                localStorage.removeItem('susu_employees_v3');
+                localStorage.removeItem('susu_records_v3');
+                employees = [...initialEmployees];
+                records = {};
+                saveEmployees();
+                saveRecords();
+                closeResetModal();
+                renderTable();
+                updateStats();
+            } else {
+                document.getElementById('passwordError').classList.remove('hidden');
+            }
+        }
+
+        function exportToExcel() {
+            const monthNames = { 
+                1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
+                7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
+            };
+            const selectedMonthName = monthNames[currentMonth] || `Bulan_${currentMonth}`;
+            const totalDays = getDaysInMonth(currentMonth, currentYear);
+            
+            const excelData = [];
+            const headerRow = ["No", "NPK", "NAMA KARYAWAN", "TOTAL TIDAK AMBIL"];
+            
+            for (let d = 1; d <= totalDays; d++) {
+                headerRow.push(`Tgl ${d}`);
+            }
+            excelData.push(headerRow);
+
+            employees.forEach((emp, index) => {
+                let totalNotTaken = 0;
+                const dailyStatus = [];
+
+                for (let d = 1; d <= totalDays; d++) {
+                    const dateKey = `${currentYear}-${currentMonth}-${d}`;
+                    const isNotTaken = records[emp.npk] && records[emp.npk][dateKey] === true;
+                    if (isNotTaken) {
+                        totalNotTaken++;
+                        dailyStatus.push("X (TIDAK)");
+                    } else {
+                        dailyStatus.push("-");
+                    }
+                }
+
+                const row = [
+                    index + 1,
+                    emp.npk,
+                    emp.name,
+                    `${totalNotTaken} Kali`,
+                    ...dailyStatus
+                ];
+                excelData.push(row);
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+            const colWidths = [{ wch: 5 }, { wch: 15 }, { wch: 30 }, { wch: 18 }];
+            for (let d = 1; d <= totalDays; d++) colWidths.push({ wch: 10 });
+            ws['!cols'] = colWidths;
+
+            XLSX.utils.book_append_sheet(wb, ws, `${selectedMonthName}_${currentYear}`);
+            XLSX.writeFile(wb, `Distribusi_Susu_Tidak_Ambil_${selectedMonthName}_${currentYear}.xlsx`);
+        }
+    </script>
+</body>
+</html>
