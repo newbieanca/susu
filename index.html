@@ -293,6 +293,10 @@
                     <label for="overwriteData" class="text-xs text-slate-600">Ganti / hapus seluruh daftar karyawan lama yang ada</label>
                 </div>
             </div>
+            <div class="pt-1 border-t">
+                <label class="text-xs text-slate-500 block mb-1">Atau pulihkan dari file cadangan (.json):</label>
+                <input type="file" accept=".json,application/json" onchange="restoreBackup(this)" class="text-xs w-full">
+            </div>
             <div class="flex justify-end gap-2 pt-2 border-t">
                 <button type="button" onclick="closeBulkImportModal()" class="px-3.5 py-2 border text-slate-600 rounded-xl text-xs sm:text-sm font-medium hover:bg-slate-50">Batal</button>
                 <button type="button" onclick="processBulkImport()" class="px-4 py-2 bg-violet-600 text-white rounded-xl text-xs sm:text-sm font-medium hover:bg-violet-700 shadow-sm">Proses Impor</button>
@@ -323,7 +327,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // APP ID & Firebase Configuration Setup
 
@@ -395,6 +399,23 @@ const firebaseConfig = {
                     updateSyncBadge('offline');
                     loadLocalFallback();
                 });
+
+                // Simpan SATU centang saja (tidak menimpa seluruh dokumen)
+                window.cloudSetDay = async function(npk, key, on) {
+                    if (!auth.currentUser) { saveToLocalStorage(); return; }
+                    updateSyncBadge('saving');
+                    try {
+                        await updateDoc(publicDocPath, new FieldPath('records', npk, key), on ? true : deleteField(), 'lastUpdated', new Date().toISOString());
+                        saveToLocalStorage();
+                        updateSyncBadge('online');
+                    } catch (err) {
+                        if (err && err.code === 'not-found') { await window.syncToCloud(); }
+                        else { console.error(err); saveToLocalStorage(); updateSyncBadge('offline'); }
+                    }
+                };
+                window.cloudBackup = async function(snap) {
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'susu_backups'), snap);
+                };
 
                 window.syncToCloud = async function() {
                     updateSyncBadge('saving');
@@ -748,9 +769,44 @@ const firebaseConfig = {
             else renderTable();
             updateStats();
             
-            if (window.syncToCloud) {
+            if (window.cloudSetDay) {
+                window.cloudSetDay(npk, dateKey, window.records[npk][dateKey]);
+            } else if (window.syncToCloud) {
                 window.syncToCloud();
             }
+        }
+
+        // ===== Cadangan & pengaman =====
+        function countChecks() {
+            let n = 0;
+            Object.values(window.records || {}).forEach(r => Object.values(r).forEach(v => { if (v) n++; }));
+            return n;
+        }
+        async function backupNow(reason) {
+            const snap = { employees: window.employees || [], records: window.records || {}, reason, at: new Date().toISOString() };
+            try { if (window.cloudBackup) await window.cloudBackup(snap); } catch (e) { console.warn('Cadangan cloud gagal:', e.message); }
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(snap)], { type: 'application/json' }));
+            a.download = `Cadangan_Susu_${snap.at.slice(0, 19).replace(/[:T]/g, '-')}.json`;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        }
+        function restoreBackup(input) {
+            const f = input.files[0]; input.value = '';
+            if (!f) return;
+            const rd = new FileReader();
+            rd.onload = async () => {
+                try {
+                    const d = JSON.parse(rd.result);
+                    if (!Array.isArray(d.employees) || typeof d.records !== 'object') throw new Error('format');
+                    if (!confirm(`Pulihkan dari cadangan?\n${d.employees.length} karyawan, tanggal cadangan ${d.at || '-'}.\nData saat ini (${window.employees.length} karyawan, ${countChecks()} centang) akan diganti.`)) return;
+                    await backupNow('sebelum-pulihkan');
+                    window.employees = d.employees; window.records = d.records;
+                    closeBulkImportModal(); renderTable(); updateStats();
+                    if (window.syncToCloud) window.syncToCloud();
+                } catch (e) { alert('File cadangan tidak valid.'); }
+            };
+            rd.readAsText(f);
         }
 
         function highlightMatch(text, keyword) {
@@ -827,6 +883,8 @@ const firebaseConfig = {
             }
 
             if (isOverwrite) {
+                if (!confirm(`Daftar lama (${window.employees.length} karyawan) akan DIGANTI dengan ${newEmployeesList.length} karyawan baru. Cadangan diunduh lebih dulu. Lanjutkan?`)) return;
+                backupNow('sebelum-impor-ganti');
                 window.employees = newEmployeesList;
             } else {
                 newEmployeesList.forEach(newEmp => {
@@ -879,7 +937,9 @@ const firebaseConfig = {
             }
         }
 
-        function doResetData() {
+        async function doResetData() {
+            if (!confirm(`PERINGATAN: ${window.employees.length} karyawan dan ${countChecks()} centang akan DIHAPUS dan diganti data sampel.\nFile cadangan akan diunduh lebih dulu. Lanjutkan?`)) return;
+            await backupNow('sebelum-reset');
             {
                 window.employees = [
                     { npk: "9900196", name: "AFIAT" },
