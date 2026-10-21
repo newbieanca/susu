@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Library SheetJS untuk Export Excel -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Library ExcelJS untuk Export Excel (dengan format/warna) -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -71,12 +71,16 @@
         .spin {
             animation: spinSlow 1.5s linear infinite;
         }
+        @media (max-width: 767px) {
+            input, select, textarea { font-size: 16px !important; }
+            body { padding-bottom: env(safe-area-inset-bottom, 0px); }
+        }
     </style>
 </head>
 <body class="text-slate-800 antialiased min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
 
     <!-- Header -->
-    <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-30">
+    <header class="bg-indigo-700 text-white shadow-md md:sticky top-0 z-30">
         <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3 flex flex-col md:flex-row justify-between items-center gap-3">
             <div class="flex items-center justify-between w-full md:w-auto">
                 <div class="flex items-center gap-2.5">
@@ -136,10 +140,11 @@
                 </div>
 
                 <!-- Action Controls Grid -->
-                <div class="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
+                <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                     
+                    <div class="grid grid-cols-3 gap-2 sm:contents">
                     <!-- Dropdown Pilihan Bulan -->
-                    <select id="monthSelect" onchange="changePeriod()" class="col-span-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <select id="monthSelect" onchange="changePeriod()" class="col-span-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2.5 sm:py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="1">Januari</option>
                         <option value="2">Februari</option>
                         <option value="3">Maret</option>
@@ -155,7 +160,7 @@
                     </select>
 
                     <!-- Dropdown Pilihan Tahun -->
-                    <select id="yearSelect" onchange="changePeriod()" class="col-span-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <select id="yearSelect" onchange="changePeriod()" class="col-span-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2.5 sm:py-2 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="2024">2024</option>
                         <option value="2025">2025</option>
                         <option value="2026" selected>2026</option>
@@ -165,30 +170,33 @@
                         <option value="2030">2030</option>
                     </select>
 
-                    <button onclick="scrollToToday()" class="col-span-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border border-indigo-200 transition-colors flex items-center justify-center gap-1.5">
+                    <button onclick="scrollToToday()" class="col-span-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2.5 sm:py-2 rounded-xl text-xs sm:text-sm font-medium border border-indigo-200 transition-colors flex items-center justify-center gap-1.5">
                         <i class="fa-solid fa-calendar-day"></i>
                         <span id="todayLabel">Hari Ini</span>
                     </button>
 
-                    <button onclick="openAddEmployeeModal()" class="col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-1.5">
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 sm:contents">
+                    <button onclick="openAddEmployeeModal()" class="col-span-1 bg-indigo-600 hover:bg-indigo-700 text-white px-1 sm:px-3 py-2 min-h-[48px] sm:min-h-0 rounded-xl text-[11px] sm:text-sm font-medium transition-colors shadow-sm flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5">
                         <i class="fa-solid fa-user-plus"></i>
-                        <span>+ Karyawan</span>
+                        <span class="sm:hidden">Karyawan</span><span class="hidden sm:inline">+ Karyawan</span>
                     </button>
 
-                    <button onclick="openBulkImportModal()" class="col-span-1 bg-violet-600 hover:bg-violet-700 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-1.5">
+                    <button onclick="openBulkImportModal()" class="col-span-1 bg-violet-600 hover:bg-violet-700 text-white px-1 sm:px-3 py-2 min-h-[48px] sm:min-h-0 rounded-xl text-[11px] sm:text-sm font-medium transition-colors shadow-sm flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5">
                         <i class="fa-solid fa-file-import"></i>
-                        <span>Impor Banyak</span>
+                        <span>Impor<span class="hidden sm:inline"> Banyak</span></span>
                     </button>
 
-                    <button onclick="exportToExcel()" class="col-span-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-1.5">
+                    <button onclick="exportToExcel()" class="col-span-1 bg-emerald-600 hover:bg-emerald-700 text-white px-1 sm:px-3 py-2 min-h-[48px] sm:min-h-0 rounded-xl text-[11px] sm:text-sm font-medium transition-colors shadow-sm flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5">
                         <i class="fa-solid fa-file-excel"></i>
                         <span>Excel</span>
                     </button>
 
-                    <button onclick="openResetModal()" class="col-span-1 bg-rose-600 hover:bg-rose-700 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors shadow-sm flex items-center justify-center gap-1.5">
+                    <button onclick="openResetModal()" class="col-span-1 bg-rose-600 hover:bg-rose-700 text-white px-1 sm:px-3 py-2 min-h-[48px] sm:min-h-0 rounded-xl text-[11px] sm:text-sm font-medium transition-colors shadow-sm flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5">
                         <i class="fa-solid fa-rotate-left"></i>
-                        <span>Reset Data</span>
+                        <span>Reset<span class="hidden sm:inline"> Data</span></span>
                     </button>
+                    </div>
                 </div>
             </div>
 
@@ -204,7 +212,7 @@
         </div>
 
         <!-- Table Container -->
-        <div class="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+        <div class="hidden md:block bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
             <div class="overflow-x-auto custom-scrollbar relative">
                 <table class="w-full text-left border-collapse min-w-[700px]">
                     <thead>
@@ -234,13 +242,17 @@
                 <p class="text-slate-500 font-medium text-xs sm:text-sm">Karyawan tidak ditemukan</p>
             </div>
         </div>
+        <!-- Daftar kartu (khusus HP) -->
+        <div id="mobileList" class="md:hidden space-y-2"></div>
     </main>
+
+    <button id="toTopBtn" onclick="window.scrollTo({top:0,behavior:'smooth'})" class="hidden md:hidden fixed bottom-4 right-4 z-40 w-11 h-11 rounded-full bg-indigo-600 text-white shadow-lg"><i class="fa-solid fa-arrow-up"></i></button>
 
     <!-- Modals -->
     
     <!-- Modal Tambah Karyawan -->
-    <div id="addEmployeeModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4">
+    <div id="addEmployeeModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white rounded-2xl rounded-b-none sm:rounded-b-2xl max-h-[92vh] overflow-y-auto max-w-md w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 class="font-bold text-slate-800 text-base sm:text-lg">Tambah Karyawan Baru</h3>
                 <button onclick="closeAddEmployeeModal()" class="text-slate-400 hover:text-slate-600 p-1">
@@ -265,8 +277,8 @@
     </div>
 
     <!-- Modal Bulk Import -->
-    <div id="bulkModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4">
+    <div id="bulkModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white rounded-2xl rounded-b-none sm:rounded-b-2xl max-h-[92vh] overflow-y-auto max-w-lg w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 class="font-bold text-slate-800 text-base sm:text-lg">Impor Banyak Karyawan dari Excel</h3>
                 <button onclick="closeBulkImportModal()" class="text-slate-400 hover:text-slate-600 p-1">
@@ -289,20 +301,20 @@
     </div>
 
     <!-- Modal Reset Password -->
-    <div id="resetModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4">
+    <div id="resetModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-white rounded-2xl rounded-b-none sm:rounded-b-2xl max-h-[92vh] overflow-y-auto max-w-sm w-full p-5 sm:p-6 shadow-xl border border-slate-100 space-y-4">
             <div class="flex items-center gap-3 text-rose-600 border-b pb-3">
                 <i class="fa-solid fa-triangle-exclamation text-xl"></i>
-                <h3 class="font-bold text-slate-800 text-base sm:text-lg">Konfirmasi Reset Data</h3>
+                <h3 id="pwdTitle" class="font-bold text-slate-800 text-base sm:text-lg">Konfirmasi</h3>
             </div>
-            <p class="text-xs text-slate-600">Seluruh data pencatatan akan dikembalikan ke data sampel awal. Masukkan password konfirmasi:</p>
+            <p id="pwdDesc" class="text-xs text-slate-600"></p>
             <div>
-                <input type="password" id="resetPasswordInput" placeholder="Masukkan Password (11223344)" class="w-full p-2.5 border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-rose-500 outline-none">
+                <input type="password" id="resetPasswordInput" placeholder="Masukkan password" autocomplete="off" onkeydown="if(event.key==='Enter')verifyPassword()" class="w-full p-2.5 border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-rose-500 outline-none">
                 <span id="passwordError" class="hidden text-[11px] text-rose-600 font-medium mt-1">Password salah!</span>
             </div>
             <div class="flex justify-end gap-2 pt-2 border-t">
                 <button onclick="closeResetModal()" class="px-3.5 py-2 border text-slate-600 rounded-xl text-xs font-medium hover:bg-slate-50">Batal</button>
-                <button onclick="verifyAndResetData()" class="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-medium hover:bg-rose-700 shadow-sm">Ya, Reset</button>
+                <button id="pwdConfirmBtn" onclick="verifyPassword()" class="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-medium hover:bg-rose-700 shadow-sm">Lanjutkan</button>
             </div>
         </div>
     </div>
@@ -436,7 +448,7 @@ const firebaseConfig = {
 
             if (status === 'online') {
                 badge.className = "bg-emerald-400 text-slate-900 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm";
-                badge.innerHTML = `<i class="fa-solid fa-cloud"></i> Firebase Terhubung (Auto-Sync)`;
+                badge.innerHTML = `<i class="fa-solid fa-cloud"></i> Firebase Terhubung<span class="hidden sm:inline"> (Auto-Sync)</span>`;
             } else if (status === 'saving') {
                 badge.className = "bg-amber-400 text-slate-900 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm";
                 badge.innerHTML = `<i class="fa-solid fa-rotate spin text-[9px]"></i> Menyimpan...`;
@@ -468,6 +480,10 @@ const firebaseConfig = {
         }
 
         function openBulkImportModal() {
+            askPassword('Password Impor Banyak', 'Fitur ini dapat mengganti daftar karyawan. Masukkan password untuk melanjutkan:', 'Lanjutkan', showBulkModal);
+        }
+
+        function showBulkModal() {
             document.getElementById('bulkDataInput').value = '';
             document.getElementById('overwriteData').checked = false;
             document.getElementById('bulkModal').classList.remove('hidden');
@@ -544,7 +560,88 @@ const firebaseConfig = {
             }
         }
 
-        function renderTable() {
+        function isMobile() { return window.matchMedia('(max-width: 767px)').matches; }
+        function renderTable() { if (isMobile()) renderMobile(); else renderDesktopTable(); }
+        window.matchMedia('(max-width: 767px)').addEventListener('change', () => renderTable());
+        window.addEventListener('scroll', () => document.getElementById('toTopBtn').classList.toggle('hidden', window.scrollY < 300), { passive: true });
+
+        const DOW = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+        const expandedCards = new Set();
+        const esc = v => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+        function cardHtml(emp, idx, kw) {
+            const y = window.currentYear, m = window.currentMonth, total = getDaysInMonth(m, y);
+            const rec = (window.records && window.records[emp.npk]) || {};
+            let n = 0;
+            for (let d = 1; d <= total; d++) if (rec[`${y}-${m}-${d}`]) n++;
+            const open = expandedCards.has(emp.npk);
+            let body = '';
+            if (open) {
+                const t = new Date();
+                const isCur = t.getMonth() + 1 === m && t.getFullYear() === y;
+                const first = new Date(y, m - 1, 1).getDay();
+                body = '<div class="grid grid-cols-7 gap-1.5 px-3 pb-2 pt-1 border-t border-slate-100">'
+                    + DOW.map((w, i) => `<div class="text-center text-[10px] font-semibold pt-2 ${i === 0 || i === 6 ? 'text-rose-400' : 'text-slate-400'}">${w}</div>`).join('')
+                    + '<div></div>'.repeat(first);
+                for (let d = 1; d <= total; d++) {
+                    const on = rec[`${y}-${m}-${d}`] === true;
+                    const today = isCur && d === t.getDate();
+                    body += `<button data-act="day" data-day="${d}" class="h-11 rounded-lg text-sm font-semibold touch-manipulation ${on ? 'bg-rose-600 text-white' : 'bg-slate-50 text-slate-600 border border-slate-200'} ${today ? 'ring-2 ring-amber-400' : ''}">${d}</button>`;
+                }
+                body += '</div><p class="px-3 pb-3 text-[11px] text-slate-400"><span class="inline-block w-2.5 h-2.5 rounded bg-rose-600 align-middle"></span> Merah = tidak ambil susu &nbsp;·&nbsp; Cincin kuning = hari ini</p>';
+            }
+            return `<div data-npk="${esc(emp.npk)}" data-idx="${idx}" class="bg-white rounded-xl border ${kw ? 'border-amber-300' : 'border-slate-200/80'} shadow-sm overflow-hidden">
+                <button data-act="toggle" class="w-full flex items-center gap-3 p-3 text-left touch-manipulation">
+                    <span class="w-7 text-center text-xs text-slate-400 font-medium">${idx + 1}</span>
+                    <span class="flex-1 min-w-0">
+                        <span class="block font-semibold text-sm text-slate-800 truncate">${highlightMatch(emp.name, kw)}</span>
+                        <span class="block font-mono text-[11px] text-slate-500">${highlightMatch(emp.npk, kw)}</span>
+                    </span>
+                    <span class="px-2 py-1 rounded-lg text-xs font-bold ${n > 0 ? 'bg-rose-50 text-rose-600' : 'bg-slate-100 text-slate-400'}">${n}x</span>
+                    <i class="fa-solid fa-chevron-${open ? 'up' : 'down'} text-slate-400 text-xs"></i>
+                </button>${body}</div>`;
+        }
+
+        function findCard(npk) {
+            return [...document.getElementById('mobileList').children].find(c => c.dataset.npk === npk);
+        }
+
+        function refreshCard(card) {
+            const emp = (window.employees || []).find(e => e.npk === card.dataset.npk);
+            if (!emp) return;
+            card.outerHTML = cardHtml(emp, +card.dataset.idx, document.getElementById('searchInput').value.trim().toLowerCase());
+        }
+
+        function renderMobile() {
+            const kw = document.getElementById('searchInput').value.trim().toLowerCase();
+            const list = (window.employees || []).filter(e => e.npk.toLowerCase().includes(kw) || e.name.toLowerCase().includes(kw));
+            const badge = document.getElementById('searchBadge');
+            document.getElementById('clearSearchBtn').classList.toggle('hidden', !kw);
+            badge.classList.toggle('hidden', !kw);
+            if (kw) {
+                document.getElementById('searchKeyword').innerText = kw;
+                document.getElementById('searchResultCount').innerText = `${list.length} ditemukan`;
+                if (list.length === 1) expandedCards.add(list[0].npk);
+            }
+            document.getElementById('mobileList').innerHTML = list.length
+                ? list.map((e, i) => cardHtml(e, i, kw)).join('')
+                : '<div class="bg-white rounded-xl border border-slate-200/80 p-8 text-center text-slate-500 text-xs">Karyawan tidak ditemukan</div>';
+        }
+
+        document.getElementById('mobileList').addEventListener('click', ev => {
+            const b = ev.target.closest('[data-act]');
+            if (!b) return;
+            const card = b.closest('[data-npk]');
+            const npk = card.dataset.npk;
+            if (b.dataset.act === 'toggle') {
+                if (expandedCards.has(npk)) expandedCards.delete(npk); else expandedCards.add(npk);
+                refreshCard(card);
+            } else {
+                toggleDistribution(npk, +b.dataset.day);
+            }
+        });
+
+        function renderDesktopTable() {
             const tbody = document.getElementById('employeeTableBody');
             const searchKeyword = document.getElementById('searchInput').value.trim().toLowerCase();
             tbody.innerHTML = '';
@@ -647,7 +744,8 @@ const firebaseConfig = {
 
             window.records[npk][dateKey] = !window.records[npk][dateKey];
             
-            renderTable();
+            if (isMobile()) { const c = findCard(npk); if (c) refreshCard(c); else renderTable(); }
+            else renderTable();
             updateStats();
             
             if (window.syncToCloud) {
@@ -657,7 +755,7 @@ const firebaseConfig = {
 
         function highlightMatch(text, keyword) {
             if (!keyword) return text;
-            const regex = new RegExp(`(${keyword})`, 'gi');
+            const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
             return text.replace(regex, `<mark class="bg-amber-200 text-slate-900 rounded-sm px-0.5">$1</mark>`);
         }
 
@@ -748,87 +846,176 @@ const firebaseConfig = {
             }
         }
 
-        function openResetModal() {
+        const APP_PASSWORD = "11223344";
+        let pwdAction = null;
+
+        function askPassword(title, desc, btnText, action) {
+            pwdAction = action;
+            document.getElementById('pwdTitle').innerText = title;
+            document.getElementById('pwdDesc').innerText = desc;
+            document.getElementById('pwdConfirmBtn').innerText = btnText;
             document.getElementById('passwordError').classList.add('hidden');
             document.getElementById('resetPasswordInput').value = '';
             document.getElementById('resetModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('resetPasswordInput').focus(), 50);
+        }
+
+        function openResetModal() {
+            askPassword('Konfirmasi Reset Data', 'Seluruh data pencatatan akan dikembalikan ke data sampel awal. Masukkan password konfirmasi:', 'Ya, Reset', doResetData);
         }
 
         function closeResetModal() {
+            pwdAction = null;
             document.getElementById('resetModal').classList.add('hidden');
         }
 
-        function verifyAndResetData() {
-            const pwd = document.getElementById('resetPasswordInput').value;
-            if (pwd === "11223344") {
+        function verifyPassword() {
+            if (document.getElementById('resetPasswordInput').value === APP_PASSWORD) {
+                const action = pwdAction;
+                closeResetModal();
+                if (action) action();
+            } else {
+                document.getElementById('passwordError').classList.remove('hidden');
+            }
+        }
+
+        function doResetData() {
+            {
                 window.employees = [
                     { npk: "9900196", name: "AFIAT" },
                     { npk: "242930", name: "ABDUL KHOLIK" },
                     { npk: "202302133", name: "ABDUL ROHMAN" }
                 ];
                 window.records = {};
-                closeResetModal();
                 renderTable();
                 updateStats();
 
                 if (window.syncToCloud) {
                     window.syncToCloud();
                 }
-            } else {
-                document.getElementById('passwordError').classList.remove('hidden');
             }
         }
 
-        function exportToExcel() {
-            const monthNames = { 
-                1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 5: "Mei", 6: "Juni",
-                7: "Juli", 8: "Agustus", 9: "September", 10: "Oktober", 11: "November", 12: "Desember"
-            };
-            const selectedMonthName = monthNames[window.currentMonth] || `Bulan_${window.currentMonth}`;
-            const totalDays = getDaysInMonth(window.currentMonth, window.currentYear);
-            
-            const excelData = [];
-            const headerRow = ["No", "NPK", "NAMA KARYAWAN", "TOTAL TIDAK AMBIL"];
-            
-            for (let d = 1; d <= totalDays; d++) {
-                headerRow.push(`Tgl ${d}`);
+        async function exportToExcel() {
+            if (typeof ExcelJS === 'undefined') { alert('Library Excel belum termuat. Periksa koneksi internet lalu coba lagi.'); return; }
+            const MN = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            const DN = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+            const m = window.currentMonth, y = window.currentYear, mn = MN[m], days = getDaysInMonth(m, y);
+            const emps = window.employees || [], rec = window.records || {};
+            const lastCol = 4 + days, R0 = 6, nE = emps.length;
+
+            const wb = new ExcelJS.Workbook();
+            wb.creator = 'Distribusi Susu Karyawan';
+            const ws = wb.addWorksheet(`${mn} ${y}`, {
+                views: [{ state: 'frozen', xSplit: 3, ySplit: 5 }],
+                pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '4:5',
+                    margins: { left: 0.3, right: 0.3, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 } }
+            });
+            const line = { style: 'thin', color: { argb: 'FFCBD5E1' } };
+            const border = { top: line, left: line, bottom: line, right: line };
+            const fill = c => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: c } });
+            const L = c => ws.getColumn(c).letter;
+            const center = { horizontal: 'center', vertical: 'middle', wrapText: true };
+
+            ws.getColumn(1).width = 5; ws.getColumn(2).width = 14; ws.getColumn(3).width = 30; ws.getColumn(4).width = 12;
+            for (let c = 5; c <= lastCol; c++) ws.getColumn(c).width = 4.6;
+
+            // Judul
+            ws.mergeCells(1, 1, 1, lastCol); ws.mergeCells(2, 1, 2, lastCol); ws.mergeCells(3, 1, 3, lastCol);
+            ws.getCell(1, 1).value = 'REKAP DISTRIBUSI SUSU KARYAWAN';
+            ws.getCell(1, 1).font = { bold: true, size: 14, color: { argb: 'FF1E293B' } };
+            ws.getCell(2, 1).value = `Periode: ${mn} ${y}  |  Total karyawan: ${nE}`;
+            ws.getCell(2, 1).font = { bold: true, size: 11 };
+            ws.getCell(3, 1).value = 'Keterangan: "X" = TIDAK mengambil susu; kosong = mengambil. Kolom Sabtu/Minggu diberi warna abu-abu.';
+            ws.getCell(3, 1).font = { italic: true, size: 9, color: { argb: 'FF64748B' } };
+            ws.getRow(1).height = 24;
+
+            // Header 2 baris (hari + tanggal)
+            ['No', 'NPK', 'Nama Karyawan', 'Total Tidak Ambil'].forEach((t, i) => {
+                ws.mergeCells(4, i + 1, 5, i + 1);
+                ws.getCell(4, i + 1).value = t;
+            });
+            for (let d = 1; d <= days; d++) {
+                ws.getCell(4, 4 + d).value = DN[new Date(y, m - 1, d).getDay()];
+                ws.getCell(5, 4 + d).value = d;
             }
-            excelData.push(headerRow);
-
-            (window.employees || []).forEach((emp, index) => {
-                let totalNotTaken = 0;
-                const dailyStatus = [];
-
-                for (let d = 1; d <= totalDays; d++) {
-                    const dateKey = `${window.currentYear}-${window.currentMonth}-${d}`;
-                    const isNotTaken = window.records && window.records[emp.npk] && window.records[emp.npk][dateKey] === true;
-                    if (isNotTaken) {
-                        totalNotTaken++;
-                        dailyStatus.push("X (TIDAK)");
-                    } else {
-                        dailyStatus.push("-");
-                    }
+            for (let r = 4; r <= 5; r++) {
+                ws.getRow(r).height = r === 4 ? 30 : 18;
+                for (let c = 1; c <= lastCol; c++) {
+                    const cell = ws.getCell(r, c);
+                    const dow = c > 4 ? new Date(y, m - 1, c - 4).getDay() : -1;
+                    cell.fill = fill(dow === 0 || dow === 6 ? 'FFBE123C' : 'FF1E293B');
+                    cell.font = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+                    cell.alignment = center; cell.border = border;
                 }
+            }
 
-                const row = [
-                    index + 1,
-                    emp.npk,
-                    emp.name,
-                    `${totalNotTaken} Kali`,
-                    ...dailyStatus
-                ];
-                excelData.push(row);
+            // Data karyawan
+            emps.forEach((emp, i) => {
+                const r = R0 + i;
+                const row = ws.getRow(r);
+                let n = 0;
+                const zebra = i % 2 === 1 ? 'FFF8FAFC' : 'FFFFFFFF';
+                for (let d = 1; d <= days; d++) {
+                    const on = !!(rec[emp.npk] && rec[emp.npk][`${y}-${m}-${d}`]);
+                    if (on) n++;
+                    const dow = new Date(y, m - 1, d).getDay();
+                    const cell = row.getCell(4 + d);
+                    cell.value = on ? 'X' : null;
+                    cell.alignment = center; cell.border = border;
+                    if (on) { cell.fill = fill('FFFECACA'); cell.font = { bold: true, color: { argb: 'FFB91C1C' } }; }
+                    else cell.fill = fill(dow === 0 || dow === 6 ? 'FFE2E8F0' : zebra);
+                }
+                row.getCell(1).value = i + 1;
+                row.getCell(2).value = String(emp.npk); row.getCell(2).numFmt = '@';
+                row.getCell(3).value = emp.name;
+                row.getCell(4).value = { formula: `COUNTIF(${L(5)}${r}:${L(lastCol)}${r},"X")`, result: n };
+                for (let c = 1; c <= 4; c++) {
+                    const cell = row.getCell(c);
+                    cell.border = border; cell.fill = fill(c === 4 ? 'FFFEF2F2' : zebra);
+                    cell.alignment = { horizontal: c === 3 ? 'left' : 'center', vertical: 'middle', indent: c === 3 ? 1 : 0 };
+                    if (c === 4) cell.font = { bold: true, color: { argb: n > 0 ? 'FFB91C1C' : 'FF94A3B8' } };
+                }
+                row.height = 18;
             });
 
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(excelData);
+            // Baris total per tanggal
+            if (nE > 0) {
+                const last = R0 + nE - 1, tNo = last + 1, tYes = last + 2;
+                const noPerDay = [], sumNo = [];
+                for (let d = 1; d <= days; d++) {
+                    let k = 0;
+                    emps.forEach(e => { if (rec[e.npk] && rec[e.npk][`${y}-${m}-${d}`]) k++; });
+                    noPerDay.push(k);
+                }
+                const totalNo = noPerDay.reduce((a, b) => a + b, 0);
+                [[tNo, 'JUMLAH TIDAK AMBIL', 'FFFECACA', 'FFB91C1C'], [tYes, 'JUMLAH MENERIMA', 'FFBBF7D0', 'FF166534']].forEach(([r, label, bg, fg]) => {
+                    ws.mergeCells(r, 1, r, 3);
+                    ws.getCell(r, 1).value = label;
+                    ws.getRow(r).height = 20;
+                    for (let c = 1; c <= lastCol; c++) {
+                        const cell = ws.getCell(r, c);
+                        cell.fill = fill(bg); cell.border = border;
+                        cell.font = { bold: true, color: { argb: fg } };
+                        cell.alignment = c <= 3 ? { horizontal: 'right', vertical: 'middle', indent: 1 } : center;
+                    }
+                });
+                ws.getCell(tNo, 4).value = { formula: `SUM(D${R0}:D${last})`, result: totalNo };
+                for (let d = 1; d <= days; d++) {
+                    const col = L(4 + d);
+                    ws.getCell(tNo, 4 + d).value = { formula: `COUNTIF(${col}${R0}:${col}${last},"X")`, result: noPerDay[d - 1] };
+                    ws.getCell(tYes, 4 + d).value = { formula: `${nE}-${col}${tNo}`, result: nE - noPerDay[d - 1] };
+                }
+                ws.autoFilter = { from: { row: 5, column: 1 }, to: { row: last, column: lastCol } };
+            }
 
-            const colWidths = [{ wch: 5 }, { wch: 15 }, { wch: 30 }, { wch: 18 }];
-            for (let d = 1; d <= totalDays; d++) colWidths.push({ wch: 10 });
-            ws['!cols'] = colWidths;
-
-            XLSX.utils.book_append_sheet(wb, ws, `${selectedMonthName}_${window.currentYear}`);
-            XLSX.writeFile(wb, `Distribusi_Susu_Tidak_Ambil_${selectedMonthName}_${window.currentYear}.xlsx`);
+            const buf = await wb.xlsx.writeBuffer();
+            const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `Distribusi_Susu_Tidak_Ambil_${mn}_${y}.xlsx`;
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
         }
     </script>
 </body>
