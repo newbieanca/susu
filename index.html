@@ -131,7 +131,7 @@
                     <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                         <i class="fa-solid fa-magnifying-glass text-xs sm:text-sm"></i>
                     </div>
-                    <input type="text" id="searchInput" oninput="handleSearch()"
+                    <input type="text" id="searchInput" name="cari-karyawan" autocomplete="off" data-lpignore="true" data-1p-ignore oninput="handleSearch()"
                         placeholder="Ketik NPK atau Nama Karyawan..." 
                         class="w-full pl-9 pr-9 py-2.5 sm:py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
                     <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
@@ -309,7 +309,7 @@
             </div>
             <p id="pwdDesc" class="text-xs text-slate-600"></p>
             <div>
-                <input type="password" id="resetPasswordInput" placeholder="Masukkan password" autocomplete="off" onkeydown="if(event.key==='Enter')verifyPassword()" class="w-full p-2.5 border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-rose-500 outline-none">
+                <input type="password" id="resetPasswordInput" placeholder="Masukkan password" name="kode-konfirmasi" autocomplete="new-password" data-lpignore="true" data-1p-ignore onkeydown="if(event.key==='Enter')verifyPassword()" class="w-full p-2.5 border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-rose-500 outline-none">
                 <span id="passwordError" class="hidden text-[11px] text-rose-600 font-medium mt-1">Password salah!</span>
             </div>
             <div class="flex justify-end gap-2 pt-2 border-t">
