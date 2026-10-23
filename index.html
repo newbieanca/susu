@@ -325,25 +325,10 @@
 
     <!-- Firebase Cloud Integration Script -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, onSnapshot, setDoc, updateDoc, deleteField, FieldPath, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // ====== KONFIGURASI (isi setelah deploy Google Apps Script) ======
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbzaOOPLYhUmGkCBU6LFurPJ20wAosuHeqAzHI24qjHXsCTPkJnMNv_vH32bamKCeco/exec';
+        const TOKEN = 'Km8xQ2vTz9LpA4wRb7Nc'; // harus sama dengan TOKEN di Code.gs
 
-        // APP ID & Firebase Configuration Setup
-
-const appId = 'distribusi-susu-app-shared';
-
-const firebaseConfig = {
-    apiKey: "AIzaSyChZ4LzrqRiveTUe1OkNOxwu2zHbSQk6Tc",
-    authDomain: "distribusi-susu.firebaseapp.com",
-    projectId: "distribusi-susu",
-    storageBucket: "distribusi-susu.firebasestorage.app",
-    messagingSenderId: "407583391511",
-    appId: "1:407583391511:web:da7448f78235c99f1e4152"
-};
-
-
-        // Sample initial employees list
         const initialEmployees = [
             { npk: "9900196", name: "AFIAT" },
             { npk: "242930", name: "ABDUL KHOLIK" },
@@ -355,91 +340,62 @@ const firebaseConfig = {
         window.currentMonth = new Date().getMonth() + 1;
         window.currentYear = new Date().getFullYear();
 
-        // Autentikasi dan Listener Realtime Cloud
-        async function initCloudSync() {
-            if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey === "demo-key") {
-                console.warn("Menggunakan Local Storage Offline Mode.");
-                updateSyncBadge('offline');
-                loadLocalFallback();
-                return;
-            }
+        let waiting = 0, chain = Promise.resolve();
 
-            try {
-                const app = initializeApp(firebaseConfig);
-                const auth = getAuth(app);
-                const db = getFirestore(app);
+        async function api(payload) {
+            const r = await fetch(GAS_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...payload, token: TOKEN }) });
+            const d = await r.json();
+            if (!d.ok) throw new Error(d.error || 'gagal');
+            return d;
+        }
 
-                // Strictly follow Rule 1 Path: /artifacts/{appId}/public/data/{collectionName}/{docId}
-                const publicDocPath = doc(db, 'artifacts', appId, 'public', 'data', 'susu_distribution', 'main_record');
+        async function loadFromServer() {
+            const r = await fetch(`${GAS_URL}?token=${encodeURIComponent(TOKEN)}&t=${Date.now()}`);
+            const d = await r.json();
+            if (!d.ok) throw new Error(d.error || 'gagal memuat');
+            window.employees = d.employees;
+            window.records = d.records;
+            saveToLocalStorage();
+            window.renderTable();
+            window.updateStats();
+            updateSyncBadge('online');
+        }
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                updateSyncBadge('online');
-
-                // Real-time listener: Setiap perubahan di PC langsung ter-sync ke HP dalam hitungan detik
-                onSnapshot(publicDocPath, (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        window.employees = data.employees && data.employees.length > 0 ? data.employees : [...initialEmployees];
-                        window.records = data.records || {};
-                    } else {
-                        window.employees = [...initialEmployees];
-                        window.records = {};
-                        window.syncToCloud();
-                    }
-                    saveToLocalStorage();
-                    window.renderTable();
-                    window.updateStats();
-                }, (error) => {
-                    console.warn("Cloud listener fallback:", error.message);
+        // Semua penyimpanan diantre satu per satu agar urutan tidak tertukar
+        function run(fn) {
+            waiting++;
+            updateSyncBadge('saving');
+            chain = chain.then(fn).then(() => { saveToLocalStorage(); })
+                .catch(err => {
+                    console.error(err);
                     updateSyncBadge('offline');
-                    loadLocalFallback();
-                });
+                    alert('Gagal menyimpan ke server: ' + err.message + '\nData dimuat ulang dari server.');
+                    return loadFromServer().catch(() => {});
+                })
+                .finally(() => { waiting--; if (waiting === 0) updateSyncBadge('online'); });
+            return chain;
+        }
 
-                // Simpan SATU centang saja (tidak menimpa seluruh dokumen)
-                window.cloudSetDay = async function(npk, key, on) {
-                    if (!auth.currentUser) { saveToLocalStorage(); return; }
-                    updateSyncBadge('saving');
-                    try {
-                        await updateDoc(publicDocPath, new FieldPath('records', npk, key), on ? true : deleteField(), 'lastUpdated', new Date().toISOString());
-                        saveToLocalStorage();
-                        updateSyncBadge('online');
-                    } catch (err) {
-                        if (err && err.code === 'not-found') { await window.syncToCloud(); }
-                        else { console.error(err); saveToLocalStorage(); updateSyncBadge('offline'); }
-                    }
-                };
-                window.cloudBackup = async function(snap) {
-                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'susu_backups'), snap);
-                };
+        function enableCloud() {
+            window.cloudSetDay = (npk, key, on) => run(() => api({ action: 'setDay', npk, key, on }));
+            window.syncToCloud = () => run(() => api({ action: 'upsertEmployees', employees: window.employees }));
+            window.cloudReplaceAll = (reason) => run(() => api({ action: 'replaceAll', reason, employees: window.employees, records: window.records }));
+        }
 
-                window.syncToCloud = async function() {
-                    updateSyncBadge('saving');
-                    try {
-                        if (auth.currentUser) {
-                            await setDoc(publicDocPath, {
-                                employees: window.employees,
-                                records: window.records,
-                                lastUpdated: new Date().toISOString()
-                            });
-                            saveToLocalStorage();
-                            updateSyncBadge('online');
-                        } else {
-                            saveToLocalStorage();
-                        }
-                    } catch (err) {
-                        console.error("Gagal simpan ke cloud:", err);
-                        saveToLocalStorage();
-                        updateSyncBadge('offline');
-                    }
-                };
+        async function poll() {
+            if (document.visibilityState !== 'visible' || waiting > 0) return;
+            try { await loadFromServer(); } catch (e) { console.warn('poll gagal', e.message); }
+        }
 
+        async function initCloudSync() {
+            if (GAS_URL.startsWith('GANTI')) { updateSyncBadge('offline'); loadLocalFallback(); return; }
+            try {
+                enableCloud();
+                await loadFromServer();
+                setInterval(poll, 30000);
+                document.addEventListener('visibilitychange', poll);
             } catch (err) {
-                console.warn("Fallback to local storage:", err);
+                console.warn('Fallback ke penyimpanan lokal:', err);
                 updateSyncBadge('offline');
                 loadLocalFallback();
             }
@@ -453,11 +409,13 @@ const firebaseConfig = {
         function loadLocalFallback() {
             const savedEmployees = localStorage.getItem('susu_employees_v5');
             const savedRecords = localStorage.getItem('susu_records_v5');
-            window.employees = savedEmployees ? JSON.parse(savedEmployees) : [...initialEmployees];
+            window.employees = savedEmployees ? JSON.parse(savedEmployees) : [];
             window.records = savedRecords ? JSON.parse(savedRecords) : {};
             window.renderTable();
             window.updateStats();
 
+            window.cloudSetDay = null;
+            window.cloudReplaceAll = null;
             window.syncToCloud = function() {
                 saveToLocalStorage();
             };
@@ -469,7 +427,7 @@ const firebaseConfig = {
 
             if (status === 'online') {
                 badge.className = "bg-emerald-400 text-slate-900 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm";
-                badge.innerHTML = `<i class="fa-solid fa-cloud"></i> Firebase Terhubung<span class="hidden sm:inline"> (Auto-Sync)</span>`;
+                badge.innerHTML = `<i class="fa-solid fa-cloud"></i> Terhubung<span class="hidden sm:inline"> ke Google Sheet</span>`;
             } else if (status === 'saving') {
                 badge.className = "bg-amber-400 text-slate-900 text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm";
                 badge.innerHTML = `<i class="fa-solid fa-rotate spin text-[9px]"></i> Menyimpan...`;
@@ -803,7 +761,7 @@ const firebaseConfig = {
                     await backupNow('sebelum-pulihkan');
                     window.employees = d.employees; window.records = d.records;
                     closeBulkImportModal(); renderTable(); updateStats();
-                    if (window.syncToCloud) window.syncToCloud();
+                    if (window.cloudReplaceAll) window.cloudReplaceAll('pulihkan'); else if (window.syncToCloud) window.syncToCloud();
                 } catch (e) { alert('File cadangan tidak valid.'); }
             };
             rd.readAsText(f);
@@ -898,10 +856,8 @@ const firebaseConfig = {
             renderTable();
             updateStats();
 
-            // Paksa simpan dan sinkronisasi ke seluruh perangkat (HP & PC)
-            if (window.syncToCloud) {
-                window.syncToCloud();
-            }
+            if (isOverwrite && window.cloudReplaceAll) window.cloudReplaceAll('impor-ganti');
+            else if (window.syncToCloud) window.syncToCloud();
         }
 
         const APP_PASSWORD = "11223344";
@@ -950,9 +906,8 @@ const firebaseConfig = {
                 renderTable();
                 updateStats();
 
-                if (window.syncToCloud) {
-                    window.syncToCloud();
-                }
+                if (window.cloudReplaceAll) window.cloudReplaceAll('reset');
+                else if (window.syncToCloud) window.syncToCloud();
             }
         }
 
